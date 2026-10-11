@@ -1,6 +1,10 @@
 package com.gymbro.fitness.ui.screens
 
+import android.Manifest
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.gymbro.fitness.data.Routine
 import com.gymbro.fitness.data.RoutineExercise
 import com.gymbro.fitness.ui.ActiveWorkoutExercise
+import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.ui.theme.*
 import java.text.SimpleDateFormat
@@ -60,6 +66,18 @@ fun WorkoutsScreen(
     var customExEquipment by remember { mutableStateOf("Barbell") }
 
     var routinePendingDelete by remember { mutableStateOf<Routine?>(null) }
+
+    // The rest timer alerts through notifications, so ask once a workout actually starts (Android 13+).
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* the workout runs either way; without permission the timer is in-app only */ }
+    val startWorkout: (Routine) -> Unit = { routine ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !RestTimerNotifier.canPostNotifications(context)) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        viewModel.startWorkout(routine)
+    }
 
     AnimatedContent(
         targetState = activeSession != null,
@@ -197,7 +215,7 @@ fun WorkoutsScreen(
                         items(routines) { routine ->
                             RoutineItemCard(
                                 routine = routine,
-                                onStartClick = { viewModel.startWorkout(routine) },
+                                onStartClick = { startWorkout(routine) },
                                 onEditClick = {
                                     editingRoutineId = routine.id
                                     routineNameInput = routine.name

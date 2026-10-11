@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.gymbro.fitness.data.*
 import com.gymbro.fitness.domain.FitnessCalculator
+import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -539,15 +540,21 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     // Rest Timer Core
     private fun startRestTimer(seconds: Int) {
         timerJob?.cancel()
+        val endAtMillis = System.currentTimeMillis() + seconds * 1000L
         _restTimerTotalSeconds.value = seconds
         _restTimerSecondsLeft.value = seconds
         _restTimerActive.value = true
+        RestTimerNotifier.start(getApplication(), seconds)
 
         timerJob = viewModelScope.launch(Dispatchers.Default) {
-            while (_restTimerSecondsLeft.value > 0) {
-                delay(1000)
-                _restTimerSecondsLeft.value -= 1
+            // Derive from the end time so the countdown doesn't drift while the app is in the background.
+            while (true) {
+                val millisLeft = endAtMillis - System.currentTimeMillis()
+                if (millisLeft <= 0) break
+                _restTimerSecondsLeft.value = ((millisLeft + 999) / 1000).toInt()
+                delay(minOf(millisLeft, 250L))
             }
+            _restTimerSecondsLeft.value = 0
             _restTimerActive.value = false
         }
     }
@@ -556,6 +563,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         timerJob?.cancel()
         _restTimerActive.value = false
         _restTimerSecondsLeft.value = 0
+        RestTimerNotifier.cancel(getApplication())
     }
 
     // Nutrition Tracking

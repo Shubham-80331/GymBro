@@ -59,8 +59,8 @@ Goal: every number on screen is real and no user data is lost.
 ### 1C. Rest timer that works in the background
 | ID | Task | Size |
 |---|---|---|
-| R-01 | Foreground service for the rest timer, with an ongoing notification and +15s / skip actions | M |
-| R-02 | Vibration and sound when rest ends; request `POST_NOTIFICATIONS` on Android 13+ | S |
+| R-01 | ◐ Rest timer outside the app: countdown notification + alarm-backed "rest over" alert (done); +15s / skip actions still to do | M |
+| R-02 | ☑ Vibration and sound when rest ends; request `POST_NOTIFICATIONS` on Android 13+ | S |
 
 ### 1D. Correct calculations
 | ID | Task | Size |
