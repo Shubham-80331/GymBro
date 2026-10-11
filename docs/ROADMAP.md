@@ -127,7 +127,7 @@ Goal: every number on screen is real and no user data is lost.
 ### 3D. Programs
 | ID | Feature | Size |
 |---|---|---|
-| PR-01 | Built-in templates: Full-Body beginner, PPL, Upper/Lower, 5/3/1, GZCLP, Bro split | M |
+| PR-01 | ☑ Built-in templates: Full-Body beginner, PPL, Upper/Lower, 5/3/1, GZCLP, Bro split | M |
 | PR-02 | Weekly schedule, "Today's workout" card on a new Home screen | M |
 
 ### 3E. Nutrition that people actually use

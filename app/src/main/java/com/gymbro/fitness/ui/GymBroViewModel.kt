@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.gymbro.fitness.data.*
 import com.gymbro.fitness.domain.FitnessCalculator
 import com.gymbro.fitness.domain.LoggedSet
+import com.gymbro.fitness.domain.ProgramTemplate
 import com.gymbro.fitness.domain.WeightUnit
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.squareup.moshi.JsonClass
@@ -563,6 +564,34 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 exercisesJson = json
             )
             repository.updateRoutine(routine)
+        }
+    }
+
+    /** Adds every day of [template] as a routine, resolving names from the exercise library. */
+    fun addProgramTemplate(template: ProgramTemplate) {
+        viewModelScope.launch {
+            val library = repository.allExercises.first().associateBy { it.id }
+            template.days.forEach { day ->
+                val exercises = day.exercises.mapNotNull { slot ->
+                    val exercise = library[slot.exerciseId] ?: return@mapNotNull null
+                    RoutineExercise(
+                        exerciseId = exercise.id,
+                        name = exercise.name,
+                        muscleGroup = exercise.muscleGroup,
+                        targetSets = slot.sets,
+                        targetReps = slot.reps,
+                        restSeconds = slot.restSeconds,
+                        targetWeightKg = 0.0
+                    )
+                }
+                repository.insertRoutine(
+                    Routine(
+                        name = day.name,
+                        description = "${template.name} · ${day.description}",
+                        exercisesJson = serializeRoutineExercises(exercises)
+                    )
+                )
+            }
         }
     }
 

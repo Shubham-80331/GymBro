@@ -2,6 +2,7 @@ package com.gymbro.fitness.ui.screens
 
 import android.Manifest
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +38,8 @@ import com.gymbro.fitness.data.RoutineExercise
 import com.gymbro.fitness.data.WorkoutSession
 import com.gymbro.fitness.ui.ActiveWorkoutExercise
 import com.gymbro.fitness.domain.FitnessCalculator
+import com.gymbro.fitness.domain.ProgramTemplate
+import com.gymbro.fitness.domain.ProgramTemplates
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.domain.WeightUnit
@@ -77,6 +80,7 @@ fun WorkoutsScreen(
     var customExEquipment by remember { mutableStateOf("Barbell") }
 
     var routinePendingDelete by remember { mutableStateOf<Routine?>(null) }
+    var showTemplates by remember { mutableStateOf(false) }
 
     // The rest timer alerts through notifications, so ask once a workout actually starts (Android 13+).
     val context = LocalContext.current
@@ -178,20 +182,29 @@ fun WorkoutsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "ROUTINES LAB",
                                     color = GymVolt,
                                     style = MaterialTheme.typography.labelMedium
                                 )
                                 Text(
-                                    text = "Custom Master Splits",
-                                    style = MaterialTheme.typography.headlineMedium,
+                                    text = "Your Routines",
+                                    style = MaterialTheme.typography.titleLarge,
                                     color = TextPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
 
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = { showTemplates = true },
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, GymVolt),
+                                contentPadding = PaddingValues(horizontal = 10.dp)
+                            ) {
+                                Text(text = "PROGRAMS", color = GymVolt, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
                             Button(
                                 onClick = {
                                     editingRoutineId = -1
@@ -207,6 +220,7 @@ fun WorkoutsScreen(
                                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add", tint = Color.Black)
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(text = "NEW SPLIT", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
                             }
                         }
                     }
@@ -291,6 +305,17 @@ fun WorkoutsScreen(
                     Text("NICE", color = GymVolt, fontWeight = FontWeight.Bold)
                 }
             }
+        )
+    }
+
+    if (showTemplates) {
+        ProgramTemplatesDialog(
+            onAdd = { template ->
+                viewModel.addProgramTemplate(template)
+                showTemplates = false
+                Toast.makeText(context, "Added ${template.days.size} routines from ${template.name}", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showTemplates = false }
         )
     }
 
@@ -1161,6 +1186,51 @@ private fun PlateCalculatorDialog(initialWeightKg: Double, unit: WeightUnit, onD
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("DONE", color = GymVolt) }
+        }
+    )
+}
+
+@Composable
+private fun ProgramTemplatesDialog(onAdd: (ProgramTemplate) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        title = { Text("Proven programs", color = GymVolt, fontWeight = FontWeight.Bold) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(ProgramTemplates.all, key = { it.name }) { template ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(DarkCard, RoundedCornerShape(10.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text(template.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(
+                            "${template.level} · ${template.daysPerWeek} days/week · ${template.days.size} routines",
+                            color = GymVolt,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(template.summary, color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            template.days.joinToString(" · ") { it.name },
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                        TextButton(onClick = { onAdd(template) }, modifier = Modifier.align(Alignment.End)) {
+                            Text("ADD ROUTINES", color = GymVolt, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("CLOSE", color = TextSecondary) }
         }
     )
 }
