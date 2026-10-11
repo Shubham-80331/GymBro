@@ -38,6 +38,7 @@ fun ProgressScreen(
     val profile by viewModel.userProfile.collectAsState()
     val sessions by viewModel.allSessions.collectAsState()
     val stepsLogs by viewModel.allStepsLogs.collectAsState()
+    val exerciseBests by viewModel.exerciseBests.collectAsState()
 
     var showLogDialog by remember { mutableStateOf(false) }
     var showStepsDialog by remember { mutableStateOf(false) }
@@ -362,6 +363,64 @@ fun ProgressScreen(
                                     .fillMaxWidth()
                                     .height(180.dp)
                             )
+                        }
+                    }
+                }
+            }
+
+            // Lift PRs: best estimated 1RM per exercise
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "LIFT PRs (EST. 1RM)",
+                            fontSize = 12.sp,
+                            color = GymVolt,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (exerciseBests.isEmpty()) {
+                            Text(
+                                text = "Finish a workout to start tracking your strength.",
+                                fontSize = 13.sp,
+                                color = TextSecondary
+                            )
+                        } else {
+                            val dateFormat = SimpleDateFormat("d MMM", Locale.getDefault())
+                            exerciseBests.take(8).forEach { best ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = best.exerciseName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(
+                                            text = String.format(
+                                                Locale.US,
+                                                "%.1f kg × %d · %s",
+                                                best.bestWeightKg,
+                                                best.bestReps,
+                                                dateFormat.format(Date(best.achievedAtMillis))
+                                            ),
+                                            color = TextSecondary,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = String.format(Locale.US, "%.1f kg", best.estimatedOneRepMaxKg),
+                                        color = FitGreen,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }

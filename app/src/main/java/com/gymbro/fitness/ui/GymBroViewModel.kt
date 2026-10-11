@@ -56,6 +56,14 @@ data class ActiveWorkoutExercise(
     val lastSessionMessage: String = ""
 )
 
+data class ExerciseBest(
+    val exerciseName: String,
+    val estimatedOneRepMaxKg: Double,
+    val bestWeightKg: Double,
+    val bestReps: Int,
+    val achievedAtMillis: Long
+)
+
 data class WorkoutSummary(
     val routineName: String,
     val durationSeconds: Int,
@@ -108,6 +116,9 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val allExercises: StateFlow<List<Exercise>>
+
+    /** Best set per exercise, ranked by estimated 1RM. */
+    val exerciseBests: StateFlow<List<ExerciseBest>>
 
     // Active Workout State
     private val _activeWorkout = MutableStateFlow<ActiveWorkoutSession?>(null)
@@ -203,6 +214,25 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+        exerciseBests = repository.allSetLogs
+            .map { logs ->
+                logs.groupBy { it.exerciseId }.values.mapNotNull { sets ->
+                    val best = sets.maxByOrNull { FitnessCalculator.estimatedOneRepMax(it.weightKg, it.reps) }
+                        ?: return@mapNotNull null
+                    val oneRepMax = FitnessCalculator.estimatedOneRepMax(best.weightKg, best.reps)
+                    if (oneRepMax <= 0.0) return@mapNotNull null
+                    ExerciseBest(
+                        exerciseName = best.exerciseName,
+                        estimatedOneRepMaxKg = oneRepMax,
+                        bestWeightKg = best.weightKg,
+                        bestReps = best.reps,
+                        achievedAtMillis = best.dateMillis
+                    )
+                }.sortedByDescending { it.estimatedOneRepMaxKg }
+            }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         allExercises = repository.allExercises.stateIn(
             scope = viewModelScope,
