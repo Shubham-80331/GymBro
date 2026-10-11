@@ -568,6 +568,78 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    /** Adds an exercise to the running workout (3 × 10 by default, prefilled from its history). */
+    fun addExerciseToActiveWorkout(exercise: Exercise) {
+        val current = _activeWorkout.value ?: return
+        viewModelScope.launch {
+            val unit = _weightUnit.value
+            val pastLogs = repository.getSetLogsForExercise(exercise.id).firstOrNull().orEmpty()
+                .filter { SetType.fromStorage(it.setType).countsAsWork }
+            val lastSessionSets = pastLogs
+                .filter { it.dateMillis == pastLogs.firstOrNull()?.dateMillis }
+                .sortedBy { it.setIndex }
+            val suggested = FitnessCalculator.suggestNextWeight(
+                lastSessionSets.map { LoggedSet(it.weightKg, it.reps) }, 10, 0.0,
+                unit.largeIncrementKg, unit.smallIncrementKg
+            )
+            val added = ActiveWorkoutExercise(
+                exerciseId = exercise.id,
+                name = exercise.name,
+                muscleGroup = exercise.muscleGroup,
+                targetSets = 3,
+                targetReps = 10,
+                restSeconds = 90,
+                targetWeightKg = suggested,
+                lastSessionMessage = if (lastSessionSets.isEmpty()) "Added mid-workout" else "Added · suggested ${unit.formatWithUnit(suggested)}",
+                sets = List(3) { i ->
+                    val previous = lastSessionSets.getOrNull(i)
+                    ActiveWorkoutSet(
+                        setIndex = i,
+                        targetWeightKg = suggested,
+                        targetReps = 10,
+                        previousWeightKg = previous?.weightKg,
+                        previousReps = previous?.reps
+                    )
+                }
+            )
+            _activeWorkout.value = (_activeWorkout.value ?: current).let { it.copy(exercises = it.exercises + added) }
+            saveActiveWorkout()
+        }
+    }
+
+    fun removeExerciseFromActiveWorkout(exerciseIndex: Int) {
+        val current = _activeWorkout.value ?: return
+        if (exerciseIndex !in current.exercises.indices) return
+        _activeWorkout.value = current.copy(exercises = current.exercises.filterIndexed { i, _ -> i != exerciseIndex })
+        saveActiveWorkout()
+    }
+
+    /** Adds one more set to an exercise, copying the last set's targets. */
+    fun addSet(exerciseIndex: Int) {
+        val current = _activeWorkout.value ?: return
+        val exercise = current.exercises.getOrNull(exerciseIndex) ?: return
+        val last = exercise.sets.lastOrNull()
+        val newSet = ActiveWorkoutSet(
+            setIndex = exercise.sets.size,
+            targetWeightKg = last?.targetWeightKg ?: exercise.targetWeightKg,
+            targetReps = last?.targetReps ?: exercise.targetReps
+        )
+        val updated = exercise.copy(sets = exercise.sets + newSet)
+        _activeWorkout.value = current.copy(exercises = current.exercises.toMutableList().also { it[exerciseIndex] = updated })
+        saveActiveWorkout()
+    }
+
+    /** Removes the last set if it hasn't been completed yet. */
+    fun removeLastSet(exerciseIndex: Int) {
+        val current = _activeWorkout.value ?: return
+        val exercise = current.exercises.getOrNull(exerciseIndex) ?: return
+        val last = exercise.sets.lastOrNull() ?: return
+        if (last.isCompleted || exercise.sets.size <= 1) return
+        val updated = exercise.copy(sets = exercise.sets.dropLast(1))
+        _activeWorkout.value = current.copy(exercises = current.exercises.toMutableList().also { it[exerciseIndex] = updated })
+        saveActiveWorkout()
+    }
+
     /** Cycles working → warm-up → drop → failure. */
     fun cycleSetType(exerciseIndex: Int, setIndex: Int) {
         val current = _activeWorkout.value ?: return

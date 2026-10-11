@@ -783,6 +783,51 @@ fun ActiveWorkoutPanel(
     var showLeaveDialog by remember { mutableStateOf(false) }
     BackHandler { showLeaveDialog = true }
 
+    var showAddExercise by remember { mutableStateOf(false) }
+    if (showAddExercise) {
+        val library by viewModel.allExercises.collectAsState()
+        var query by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddExercise = false },
+            containerColor = DarkSurface,
+            title = { Text("Add exercise", color = GymVolt, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        placeholder = { Text("Search", color = TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        items(
+                            library.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) || it.muscleGroup.contains(query.trim(), ignoreCase = true) },
+                            key = { it.id }
+                        ) { ex ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.addExerciseToActiveWorkout(ex)
+                                        showAddExercise = false
+                                    }
+                                    .padding(vertical = 10.dp)
+                            ) {
+                                Text(ex.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("${ex.muscleGroup} · ${ex.equipment}", color = TextSecondary, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAddExercise = false }) { Text("CLOSE", color = TextSecondary) }
+            }
+        )
+    }
+
     if (showLeaveDialog) {
         AlertDialog(
             onDismissRequest = { showLeaveDialog = false },
@@ -963,6 +1008,18 @@ fun ActiveWorkoutPanel(
                         viewModel = viewModel,
                         timerActive = timerActive
                     )
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = { showAddExercise = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, GymVolt)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = GymVolt)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("ADD EXERCISE", color = GymVolt, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
@@ -1145,6 +1202,31 @@ fun ActiveExerciseCard(
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = { viewModel.addSet(exerciseIndex) }) {
+                    Text("+ SET", color = GymVolt, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                TextButton(
+                    onClick = { viewModel.removeLastSet(exerciseIndex) },
+                    enabled = exercise.sets.size > 1 && exercise.sets.lastOrNull()?.isCompleted == false
+                ) {
+                    Text("− SET", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(
+                    onClick = { viewModel.removeExerciseFromActiveWorkout(exerciseIndex) },
+                    enabled = exercise.sets.none { it.isCompleted }
+                ) {
+                    Text("REMOVE", color = ErrorRed, fontSize = 12.sp)
                 }
             }
         }
