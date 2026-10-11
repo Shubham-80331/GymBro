@@ -1,5 +1,8 @@
 package com.gymbro.fitness.ui.screens
 
+import android.Manifest
+import android.app.TimePickerDialog
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymbro.fitness.BuildConfig
+import com.gymbro.fitness.notifications.RestTimerNotifier
+import com.gymbro.fitness.notifications.WorkoutReminder
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.ui.theme.*
 import java.text.SimpleDateFormat
@@ -25,6 +30,15 @@ fun SettingsDialog(
 ) {
     val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
+    var reminder by remember { mutableStateOf(WorkoutReminder.settings(context)) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* the reminder is scheduled either way; it only shows once notifications are allowed */ }
+
+    fun saveReminder(updated: WorkoutReminder.Settings) {
+        reminder = updated
+        WorkoutReminder.update(context, updated)
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -76,6 +90,45 @@ fun SettingsDialog(
         title = { Text("Settings", color = GymVolt, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("REMINDERS", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text("Daily workout reminder", color = TextPrimary, modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = reminder.enabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                !RestTimerNotifier.canPostNotifications(context)
+                            ) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                            saveReminder(reminder.copy(enabled = enabled))
+                        },
+                        colors = SwitchDefaults.colors(checkedTrackColor = GymVolt)
+                    )
+                }
+                if (reminder.enabled) {
+                    OutlinedButton(
+                        onClick = {
+                            TimePickerDialog(
+                                context,
+                                { _, hour, minute -> saveReminder(reminder.copy(hour = hour, minute = minute)) },
+                                reminder.hour,
+                                reminder.minute,
+                                android.text.format.DateFormat.is24HourFormat(context)
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            String.format(Locale.US, "Remind me at %02d:%02d", reminder.hour, reminder.minute),
+                            color = TextPrimary
+                        )
+                    }
+                }
+
                 Text("YOUR DATA", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
                 OutlinedButton(
                     onClick = {

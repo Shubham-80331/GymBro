@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import com.gymbro.fitness.notifications.WorkoutReminder
 import com.gymbro.fitness.ui.GymBroApp
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.ui.GymBroViewModelFactory
@@ -19,6 +20,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Alarms are dropped on force-stop; re-arm the daily reminder whenever the app opens.
+        WorkoutReminder.reschedule(this)
         enableEdgeToEdge()
         setContent {
             GymBroTheme {
