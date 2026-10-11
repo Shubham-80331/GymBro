@@ -42,6 +42,45 @@ fun ProgressScreen(
     val exerciseBests by viewModel.exerciseBests.collectAsState()
     val unit by viewModel.weightUnit.collectAsState()
     val weeklySets by viewModel.weeklySetsByMuscle.collectAsState()
+    var selectedLift by remember { mutableStateOf<com.gymbro.fitness.ui.ExerciseBest?>(null) }
+
+    selectedLift?.let { lift ->
+        val history by remember(lift.exerciseId) { viewModel.oneRepMaxHistory(lift.exerciseId) }
+            .collectAsState(initial = emptyList())
+        AlertDialog(
+            onDismissRequest = { selectedLift = null },
+            containerColor = DarkSurface,
+            title = { Text(lift.exerciseName, color = GymVolt, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Estimated 1RM per session", color = TextSecondary, fontSize = 12.sp)
+                    if (history.size < 2) {
+                        Text("Log this lift in at least two workouts to see a trend.", color = TextSecondary, fontSize = 13.sp)
+                    } else {
+                        OneRepMaxChart(points = history.map { unit.fromKg(it.second) })
+                        val first = history.first().second
+                        val last = history.last().second
+                        Text(
+                            text = String.format(
+                                Locale.US,
+                                "%s → %s (%+.1f %s) over %d sessions",
+                                unit.format(first),
+                                unit.formatWithUnit(last),
+                                unit.fromKg(last - first),
+                                unit.label,
+                                history.size
+                            ),
+                            color = TextPrimary,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedLift = null }) { Text("CLOSE", color = GymVolt) }
+            }
+        )
+    }
 
     var showLogDialog by remember { mutableStateOf(false) }
     var showStepsDialog by remember { mutableStateOf(false) }
@@ -450,6 +489,7 @@ fun ProgressScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .clickable { selectedLift = best }
                                         .padding(vertical = 6.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
@@ -910,5 +950,34 @@ fun WeightLogItem(
                 }
             }
         }
+    }
+}
+
+/** Simple line chart of values in display units, oldest to newest. */
+@Composable
+private fun OneRepMaxChart(points: List<Double>) {
+    val minValue = points.min()
+    val maxValue = points.max()
+    val range = (maxValue - minValue).takeIf { it > 0.0 } ?: 1.0
+    androidx.compose.foundation.Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp)
+            .background(DarkCard, RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    ) {
+        val stepX = if (points.size > 1) size.width / (points.size - 1) else 0f
+        val path = androidx.compose.ui.graphics.Path()
+        points.forEachIndexed { index, value ->
+            val x = index * stepX
+            val y = size.height - ((value - minValue) / range * size.height).toFloat()
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            drawCircle(color = GymVolt, radius = 4.dp.toPx(), center = androidx.compose.ui.geometry.Offset(x, y))
+        }
+        drawPath(
+            path = path,
+            color = GymVolt,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+        )
     }
 }

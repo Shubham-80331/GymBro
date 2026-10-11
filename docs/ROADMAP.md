@@ -120,7 +120,7 @@ Goal: every number on screen is real and no user data is lost.
 | ID | Feature | Size |
 |---|---|---|
 | G-01 | ☑ Automatic progressive overload suggestion ("hit 3×10 → try 62.5 kg") | M |
-| G-02 | ◐ (best est. 1RM per lift on Progress done; trend charts next) Estimated 1RM trend charts per lift; PR history | M |
+| G-02 | ☑ Estimated 1RM trend charts per lift; PR history | M |
 | G-03 | ◐ Weekly sets per muscle group plus a body heat-map of under-trained muscles (weekly sets bars done; body heat-map next) | M |
 | G-04 | ☑ Plateau detection → deload suggestion | S |
 

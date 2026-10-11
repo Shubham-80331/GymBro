@@ -65,6 +65,7 @@ data class ActiveWorkoutExercise(
 )
 
 data class ExerciseBest(
+    val exerciseId: String,
     val exerciseName: String,
     val estimatedOneRepMaxKg: Double,
     val bestWeightKg: Double,
@@ -252,6 +253,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                     val oneRepMax = FitnessCalculator.estimatedOneRepMax(best.weightKg, best.reps)
                     if (oneRepMax <= 0.0) return@mapNotNull null
                     ExerciseBest(
+                        exerciseId = best.exerciseId,
                         exerciseName = best.exerciseName,
                         estimatedOneRepMaxKg = oneRepMax,
                         bestWeightKg = best.weightKg,
@@ -644,6 +646,15 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
+    /** Best estimated 1RM per session for one exercise, oldest first: (session time, kg). */
+    fun oneRepMaxHistory(exerciseId: String): Flow<List<Pair<Long, Double>>> =
+        repository.getSetLogsForExercise(exerciseId).map { logs ->
+            logs.groupBy { it.dateMillis }
+                .map { (date, sets) -> date to sets.maxOf { FitnessCalculator.estimatedOneRepMax(it.weightKg, it.reps) } }
+                .filter { it.second > 0.0 }
+                .sortedBy { it.first }
+        }
 
     fun deleteWorkoutSession(session: WorkoutSession) {
         viewModelScope.launch {
