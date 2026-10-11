@@ -1,4 +1,4 @@
-package com.example.data
+package com.gymbro.fitness.data
 
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow

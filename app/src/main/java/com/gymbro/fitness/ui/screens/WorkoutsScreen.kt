@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.gymbro.fitness.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
@@ -24,11 +24,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.Routine
-import com.example.data.RoutineExercise
-import com.example.ui.ActiveWorkoutExercise
-import com.example.ui.GymBroViewModel
-import com.example.ui.theme.*
+import com.gymbro.fitness.data.Routine
+import com.gymbro.fitness.data.RoutineExercise
+import com.gymbro.fitness.ui.ActiveWorkoutExercise
+import com.gymbro.fitness.ui.GymBroViewModel
+import com.gymbro.fitness.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -557,7 +557,7 @@ fun RoutineItemCard(
 @Composable
 fun ActiveWorkoutPanel(
     viewModel: GymBroViewModel,
-    activeSession: com.example.ui.ActiveWorkoutSession,
+    activeSession: com.gymbro.fitness.ui.ActiveWorkoutSession,
     prCelebration: String?
 ) {
     val secondsLeft by viewModel.restTimerSecondsLeft.collectAsState()

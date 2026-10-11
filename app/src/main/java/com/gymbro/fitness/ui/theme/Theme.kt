@@ -1,4 +1,4 @@
-package com.example.ui.theme
+package com.gymbro.fitness.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -22,7 +22,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun MyApplicationTheme(
+fun GymBroTheme(
     darkTheme: Boolean = true, // Force dark mode for premium gamified design
     dynamicColor: Boolean = false, // Set false to prioritize our high-energy custom layout branding
     content: @Composable () -> Unit
