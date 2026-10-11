@@ -133,7 +133,7 @@ Goal: every number on screen is real and no user data is lost.
 ### 3E. Nutrition that people actually use
 | ID | Feature | Size |
 |---|---|---|
-| N-01 | Food search (Open Food Facts plus USDA); serving sizes and quantity | L |
+| N-01 | ◐ Food search (Open Food Facts plus USDA); serving sizes and quantity (Open Food Facts search + grams done; USDA later) | L |
 | N-02 | Barcode scanner (CameraX plus ML Kit) | M |
 | N-03 | ◐ (saved foods quick-pick done; recents/favourites next) Recent, favourite, and custom foods (custom foods are already in the DB but have no UI) | S |
 | N-04 | Indian and regional food database (dal, roti, paneer, poha…) | M |

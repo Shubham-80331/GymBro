@@ -738,6 +738,37 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    // Food database search (Open Food Facts)
+    private val _foodSearchResults = MutableStateFlow<List<FoodSearchResult>>(emptyList())
+    val foodSearchResults: StateFlow<List<FoodSearchResult>> = _foodSearchResults.asStateFlow()
+    private val _foodSearchState = MutableStateFlow<String?>(null) // null = idle, else a status message
+    val foodSearchState: StateFlow<String?> = _foodSearchState.asStateFlow()
+    private var foodSearchJob: Job? = null
+
+    fun searchFoods(query: String) {
+        if (query.isBlank()) return
+        foodSearchJob?.cancel()
+        _foodSearchState.value = "Searching…"
+        foodSearchJob = viewModelScope.launch {
+            try {
+                val results = withContext(Dispatchers.IO) { FoodSearchClient.search(query) }
+                _foodSearchResults.value = results
+                _foodSearchState.value = if (results.isEmpty()) "No foods found. Try another name." else null
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _foodSearchResults.value = emptyList()
+                _foodSearchState.value = "Couldn't reach the food database. Check your connection."
+            }
+        }
+    }
+
+    fun clearFoodSearch() {
+        foodSearchJob?.cancel()
+        _foodSearchResults.value = emptyList()
+        _foodSearchState.value = null
+    }
+
     fun deleteLoggedFood(id: Int) {
         viewModelScope.launch {
             repository.deleteFoodLog(id)

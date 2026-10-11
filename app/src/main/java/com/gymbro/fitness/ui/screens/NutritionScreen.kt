@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymbro.fitness.data.FoodLog
+import com.gymbro.fitness.data.FoodSearchResult
+import kotlin.math.roundToInt
 
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.ui.theme.*
@@ -53,6 +56,21 @@ fun NutritionScreen(
     var foodCarbs by remember { mutableStateOf("") }
     var foodFats by remember { mutableStateOf("") }
     var saveAsFavourite by remember { mutableStateOf(false) }
+
+    // Food database search
+    var foodQuery by remember { mutableStateOf("") }
+    var selectedFood by remember { mutableStateOf<FoodSearchResult?>(null) }
+    var gramsInput by remember { mutableStateOf("100") }
+    val foodResults by viewModel.foodSearchResults.collectAsState()
+    val foodSearchState by viewModel.foodSearchState.collectAsState()
+
+    fun applyPortion(food: FoodSearchResult, gramsText: String) {
+        val grams = gramsText.trim().toDoubleOrNull() ?: return
+        val factor = grams / 100.0
+        foodProtein = (food.proteinPer100g * factor).roundToInt().toString()
+        foodCarbs = (food.carbsPer100g * factor).roundToInt().toString()
+        foodFats = (food.fatPer100g * factor).roundToInt().toString()
+    }
     val savedFoods by viewModel.allCustomFoods.collectAsState()
 
     // Daily calculations
@@ -313,6 +331,10 @@ fun NutritionScreen(
                     foodCarbs = ""
                     foodFats = ""
                     saveAsFavourite = false
+                    foodQuery = ""
+                    selectedFood = null
+                    gramsInput = "100"
+                    viewModel.clearFoodSearch()
                     selectedMealType = "Breakfast"
                     showAddDialog = true
                 },
@@ -356,7 +378,9 @@ fun NutritionScreen(
             title = { Text("Log Food Item details", color = GymVolt, fontWeight = FontWeight.Bold) },
             text = {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Meal selector
@@ -386,6 +410,76 @@ fun NutritionScreen(
                         }
                     }
 
+                    // Search the food database
+                    Text(text = "SEARCH FOODS", fontSize = 11.sp, color = TextSecondary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = foodQuery,
+                            onValueChange = { foodQuery = it },
+                            placeholder = { Text("e.g. greek yogurt, oats", color = TextSecondary) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GymVolt, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+                        )
+                        IconButton(onClick = { viewModel.searchFoods(foodQuery) }) {
+                            Icon(imageVector = Icons.Default.Search, contentDescription = "Search foods", tint = GymVolt)
+                        }
+                    }
+                    foodSearchState?.let { Text(text = it, fontSize = 12.sp, color = TextSecondary) }
+                    if (selectedFood == null) {
+                        foodResults.take(10).forEach { food ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(DarkCard)
+                                    .clickable {
+                                        selectedFood = food
+                                        gramsInput = "100"
+                                        foodName = food.name
+                                        applyPortion(food, "100")
+                                        saveAsFavourite = false
+                                    }
+                                    .padding(10.dp)
+                            ) {
+                                Text(text = food.name, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(
+                                    text = (if (food.brand.isNotEmpty()) "${food.brand} · " else "") +
+                                        "per 100 g: ${food.kcalPer100g.roundToInt()} kcal · P ${food.proteinPer100g.roundToInt()} · " +
+                                        "C ${food.carbsPer100g.roundToInt()} · F ${food.fatPer100g.roundToInt()}",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    } else {
+                        val food = selectedFood!!
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = gramsInput,
+                                onValueChange = {
+                                    gramsInput = it
+                                    applyPortion(food, it)
+                                },
+                                label = { Text("Amount (g)", color = TextPrimary) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GymVolt, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+                            )
+                            TextButton(onClick = { selectedFood = null }) {
+                                Text("CHANGE", color = GymVolt)
+                            }
+                        }
+                        val grams = gramsInput.trim().toDoubleOrNull() ?: 0.0
+                        Text(
+                            text = "${(food.kcalPer100g * grams / 100).roundToInt()} kcal for ${gramsInput.trim()} g",
+                            color = GymVolt,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
                     if (savedFoods.isNotEmpty()) {
                         Text(text = "SAVED FOODS", fontSize = 11.sp, color = TextSecondary)
                         Row(
@@ -404,6 +498,7 @@ fun NutritionScreen(
                                             foodProtein = food.proteinGrams.toString()
                                             foodCarbs = food.carbsGrams.toString()
                                             foodFats = food.fatsGrams.toString()
+                                            selectedFood = null
                                             saveAsFavourite = false
                                         }
                                         .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -425,7 +520,7 @@ fun NutritionScreen(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = foodProtein,
-                            onValueChange = { foodProtein = it },
+                            onValueChange = { foodProtein = it; selectedFood = null },
                             label = { Text("Protein (g)", color = TextPrimary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
@@ -434,7 +529,7 @@ fun NutritionScreen(
 
                         OutlinedTextField(
                             value = foodCarbs,
-                            onValueChange = { foodCarbs = it },
+                            onValueChange = { foodCarbs = it; selectedFood = null },
                             label = { Text("Carbs (g)", color = TextPrimary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
@@ -443,7 +538,7 @@ fun NutritionScreen(
 
                         OutlinedTextField(
                             value = foodFats,
-                            onValueChange = { foodFats = it },
+                            onValueChange = { foodFats = it; selectedFood = null },
                             label = { Text("Fats (g)", color = TextPrimary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
@@ -467,7 +562,12 @@ fun NutritionScreen(
                         val prot = foodProtein.toIntOrNull() ?: 0
                         val carb = foodCarbs.toIntOrNull() ?: 0
                         val fat = foodFats.toIntOrNull() ?: 0
-                        val calories = (prot * 4) + (carb * 4) + (fat * 9)
+                        // Database foods carry their own label calories; manual entries use 4/4/9.
+                        val calories = selectedFood?.let { food ->
+                            val grams = gramsInput.trim().toDoubleOrNull() ?: 100.0
+                            (food.kcalPer100g * grams / 100).roundToInt()
+                        } ?: ((prot * 4) + (carb * 4) + (fat * 9))
+                        val portion = if (selectedFood != null) "${gramsInput.trim()} g" else "custom"
 
                         if (foodName.isNotBlank()) {
                             viewModel.logFoodItem(
@@ -477,7 +577,7 @@ fun NutritionScreen(
                                 protein = prot,
                                 carbs = carb,
                                 fats = fat,
-                                portion = "custom",
+                                portion = portion,
                                 mealType = selectedMealType
                             )
                             val alreadySaved = savedFoods.any { it.name.equals(foodName.trim(), ignoreCase = true) }
@@ -489,7 +589,7 @@ fun NutritionScreen(
                                     protein = prot,
                                     carbs = carb,
                                     fats = fat,
-                                    portion = "custom"
+                                    portion = portion
                                 )
                             }
                             showAddDialog = false
