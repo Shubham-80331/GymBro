@@ -87,7 +87,7 @@ Goal: every number on screen is real and no user data is lost.
 | P-07 | ☑ Configure `backup_rules.xml` and `data_extraction_rules.xml` (back up the DB, exclude photos and caches) | S |
 | P-08 | Crashlytics plus privacy-friendly analytics, behind a consent toggle | S |
 | P-09 | Real launcher icon, splash screen (`core-splashscreen`), light theme option | M |
-| P-10 | Accessibility pass: content descriptions, 48dp touch targets, font scaling, contrast | M |
+| P-10 | ◐ Accessibility pass: content descriptions, 48dp touch targets, font scaling, contrast (icon buttons now 48dp; tiny 9–10sp labels and contrast still to review) | M |
 | P-11 | Move all UI strings into `strings.xml` (ready for translation, e.g. Hindi) | M |
 | P-12 | Store listing: screenshots, feature graphic, short and full description, Data Safety form, content rating | S |
 | P-13 | Internal test track → closed test (≥12 testers × 14 days, required for new personal accounts) | — |

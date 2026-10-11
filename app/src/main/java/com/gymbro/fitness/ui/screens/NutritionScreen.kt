@@ -153,8 +153,8 @@ fun NutritionScreen(
                                 editCarbsGoal = targetCarbs.toString()
                                 editFatsGoal = targetFats.toString()
                                 showEditGoalsDialog = true 
-                            }, modifier = Modifier.size(24.dp)) {
-                                Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit Goals", tint = GymVolt)
+                            }) {
+                                Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit macro goals", tint = GymVolt)
                             }
                             Box(
                                 modifier = Modifier

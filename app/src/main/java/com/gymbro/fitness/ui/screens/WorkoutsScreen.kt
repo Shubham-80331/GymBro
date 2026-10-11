@@ -443,8 +443,7 @@ fun WorkoutsScreen(
                                     IconButton(
                                         onClick = {
                                             selectedExercisesForRoutine = selectedExercisesForRoutine.filter { it.exerciseId != ex.exerciseId }
-                                        },
-                                        modifier = Modifier.size(24.dp)
+                                        }
                                     ) {
                                         Icon(imageVector = Icons.Default.Close, contentDescription = "Remove", tint = ErrorRed)
                                     }
