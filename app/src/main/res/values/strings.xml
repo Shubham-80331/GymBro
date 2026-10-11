@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">GymBro</string>
+    <string name="widget_loading">Loading…</string>
+    <string name="widget_description">Your streak and what\'s left of today\'s calories and protein</string>
 </resources>

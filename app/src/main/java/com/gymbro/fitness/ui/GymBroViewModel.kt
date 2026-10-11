@@ -15,6 +15,7 @@ import com.gymbro.fitness.domain.LoggedSet
 import com.gymbro.fitness.domain.ProgramTemplate
 import com.gymbro.fitness.domain.WeightUnit
 import com.gymbro.fitness.notifications.RestTimerNotifier
+import com.gymbro.fitness.widget.GymBroWidget
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -504,6 +505,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             )
 
             repository.logSession(sessionLog)
+            GymBroWidget.refresh(getApplication())
             _workoutSummary.value = WorkoutSummary(
                 routineName = current.routineName,
                 durationSeconds = elapsedTimeSeconds,
@@ -737,6 +739,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 dateString = _selectedDate.value
             )
             repository.insertFoodLog(foodLog)
+            GymBroWidget.refresh(getApplication())
         }
     }
 
