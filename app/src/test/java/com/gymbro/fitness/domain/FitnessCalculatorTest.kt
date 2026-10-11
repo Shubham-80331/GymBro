@@ -163,6 +163,16 @@ class FitnessCalculatorTest {
         assertEquals(SetType.WORKING, SetType.fromStorage("unknown"))
     }
 
+    @Test
+    fun `next routine rotates after the last trained one`() {
+        val routines = listOf("Push", "Pull", "Legs")
+        assertEquals(1, FitnessCalculator.nextRoutineIndex(routines, "Push"))
+        assertEquals(0, FitnessCalculator.nextRoutineIndex(routines, "Legs"))
+        assertEquals(0, FitnessCalculator.nextRoutineIndex(routines, null))
+        assertEquals(0, FitnessCalculator.nextRoutineIndex(routines, "Deleted routine"))
+        assertEquals(null, FitnessCalculator.nextRoutineIndex(emptyList(), "Push"))
+    }
+
     private fun noon(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 12)
         set(Calendar.MINUTE, 0)

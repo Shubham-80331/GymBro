@@ -167,5 +167,15 @@ object FitnessCalculator {
         return (Math.floor(target / stepKg) * stepKg).coerceAtLeast(stepKg)
     }
 
+    /**
+     * Rotation for "Today's workout": the routine after the one trained most recently,
+     * wrapping around; the first routine when nothing matches. Null when there are no routines.
+     */
+    fun nextRoutineIndex(routineNamesInOrder: List<String>, lastTrainedName: String?): Int? {
+        if (routineNamesInOrder.isEmpty()) return null
+        val lastIndex = routineNamesInOrder.indexOf(lastTrainedName)
+        return if (lastIndex < 0) 0 else (lastIndex + 1) % routineNamesInOrder.size
+    }
+
     private const val STRENGTH_TRAINING_MET = 5.0
 }

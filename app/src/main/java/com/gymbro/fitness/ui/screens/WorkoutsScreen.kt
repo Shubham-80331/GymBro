@@ -178,6 +178,53 @@ fun WorkoutsScreen(
                         }
                     }
 
+                    // Today's workout: next routine in the rotation
+                    val orderedRoutines = routines.sortedBy { it.id }
+                    val nextIndex = FitnessCalculator.nextRoutineIndex(
+                        orderedRoutines.map { it.name },
+                        sessions.firstOrNull()?.routineName
+                    )
+                    if (nextIndex != null) {
+                        val next = orderedRoutines[nextIndex]
+                        val trainedToday = sessions.firstOrNull()?.let {
+                            android.text.format.DateUtils.isToday(it.dateMillis)
+                        } == true
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, GymVolt.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+                                colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = if (trainedToday) "DONE TODAY ✓ · NEXT UP" else "TODAY'S WORKOUT",
+                                            color = GymVolt,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(next.name, color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                        val count = viewModel.parseExercisesJson(next.exercisesJson).size
+                                        Text("$count exercises", color = TextSecondary, fontSize = 12.sp)
+                                    }
+                                    Button(
+                                        onClick = { startWorkout(next) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = GymVolt)
+                                    ) {
+                                        Text("START", color = Color.Black, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Pre-made Templates and Routines header
                     item {
                         Row(
