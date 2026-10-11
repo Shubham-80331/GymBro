@@ -4,6 +4,8 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -50,6 +52,8 @@ fun NutritionScreen(
     var foodProtein by remember { mutableStateOf("") }
     var foodCarbs by remember { mutableStateOf("") }
     var foodFats by remember { mutableStateOf("") }
+    var saveAsFavourite by remember { mutableStateOf(false) }
+    val savedFoods by viewModel.allCustomFoods.collectAsState()
 
     // Daily calculations
     val targetCal = profile?.targetCalories ?: 2200
@@ -308,6 +312,7 @@ fun NutritionScreen(
                     foodProtein = ""
                     foodCarbs = ""
                     foodFats = ""
+                    saveAsFavourite = false
                     selectedMealType = "Breakfast"
                     showAddDialog = true
                 },
@@ -381,6 +386,34 @@ fun NutritionScreen(
                         }
                     }
 
+                    if (savedFoods.isNotEmpty()) {
+                        Text(text = "SAVED FOODS", fontSize = 11.sp, color = TextSecondary)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            savedFoods.forEach { food ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(DarkCard)
+                                        .clickable {
+                                            foodName = food.name
+                                            foodProtein = food.proteinGrams.toString()
+                                            foodCarbs = food.carbsGrams.toString()
+                                            foodFats = food.fatsGrams.toString()
+                                            saveAsFavourite = false
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text(text = food.name, fontSize = 12.sp, color = TextPrimary)
+                                }
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = foodName,
                         onValueChange = { foodName = it },
@@ -417,6 +450,15 @@ fun NutritionScreen(
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GymVolt, focusedLabelColor = GymVolt, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
                         )
                     }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = saveAsFavourite,
+                            onCheckedChange = { saveAsFavourite = it },
+                            colors = CheckboxDefaults.colors(checkedColor = GymVolt, checkmarkColor = Color.Black)
+                        )
+                        Text(text = "Save to my foods for quick logging", fontSize = 12.sp, color = TextPrimary)
+                    }
                 }
             },
             confirmButton = {
@@ -438,6 +480,18 @@ fun NutritionScreen(
                                 portion = "custom",
                                 mealType = selectedMealType
                             )
+                            val alreadySaved = savedFoods.any { it.name.equals(foodName.trim(), ignoreCase = true) }
+                            if (saveAsFavourite && !alreadySaved) {
+                                viewModel.addCustomFoodToDatabase(
+                                    name = foodName.trim(),
+                                    brand = "",
+                                    calories = calories,
+                                    protein = prot,
+                                    carbs = carb,
+                                    fats = fat,
+                                    portion = "custom"
+                                )
+                            }
                             showAddDialog = false
                         }
                     },
