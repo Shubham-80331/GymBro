@@ -847,14 +847,22 @@ fun ActiveWorkoutPanel(
                             }
                         }
 
-                        val ratio = if (totalSeconds > 0) (secondsLeft.toFloat() / totalSeconds.toFloat()) else 0f
-                        CircularProgressIndicator(
-                            progress = { ratio },
-                            modifier = Modifier.size(36.dp),
-                            color = GymVolt,
-                            trackColor = CardStroke,
-                            strokeWidth = 4.dp
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { viewModel.addRestTime(15) }) {
+                                Text("+15s", color = GymVolt, fontWeight = FontWeight.Bold)
+                            }
+                            TextButton(onClick = { viewModel.skipRest() }) {
+                                Text("SKIP", color = TextSecondary, fontWeight = FontWeight.Bold)
+                            }
+                            val ratio = if (totalSeconds > 0) (secondsLeft.toFloat() / totalSeconds.toFloat()) else 0f
+                            CircularProgressIndicator(
+                                progress = { ratio },
+                                modifier = Modifier.size(36.dp),
+                                color = GymVolt,
+                                trackColor = CardStroke,
+                                strokeWidth = 4.dp
+                            )
+                        }
                     }
                 }
 

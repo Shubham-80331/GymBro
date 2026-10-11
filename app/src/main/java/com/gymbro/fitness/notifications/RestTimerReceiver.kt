@@ -6,6 +6,11 @@ import android.content.Intent
 
 class RestTimerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        RestTimerNotifier.showRestOver(context)
+        when (intent.action) {
+            RestTimerNotifier.ACTION_ADD_TIME ->
+                RestTimerNotifier.addTime(context, intent.getIntExtra(RestTimerNotifier.EXTRA_SECONDS, 15))
+            RestTimerNotifier.ACTION_SKIP -> RestTimerNotifier.skip(context)
+            else -> RestTimerNotifier.showRestOver(context)
+        }
     }
 }

@@ -15,12 +15,22 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.gymbro.fitness.MainActivity
 import com.gymbro.fitness.R
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Rest timer outside the app: an ongoing countdown notification while resting, and an alarm
  * that replaces it with a "rest over" alert. The alarm fires even if the process was killed.
  */
 object RestTimerNotifier {
+    /** When the current rest ends (null when not resting). Shared by the app UI and notification actions. */
+    val endAtMillis = MutableStateFlow<Long?>(null)
+
+    const val ACTION_ADD_TIME = "com.gymbro.fitness.REST_ADD_TIME"
+    const val ACTION_SKIP = "com.gymbro.fitness.REST_SKIP"
+    const val EXTRA_SECONDS = "seconds"
+    private const val REQUEST_ADD_TIME = 2005
+    private const val REQUEST_SKIP = 2006
+
     private const val CHANNEL_COUNTDOWN = "rest_timer_countdown"
     private const val CHANNEL_DONE = "rest_timer_done"
     private const val NOTIFICATION_ID = 1001
@@ -30,7 +40,23 @@ object RestTimerNotifier {
 
     @SuppressLint("MissingPermission") // guarded by canPostNotifications
     fun start(context: Context, seconds: Int) {
-        val endAtMillis = System.currentTimeMillis() + seconds * 1000L
+        schedule(context, System.currentTimeMillis() + seconds * 1000L)
+    }
+
+    /** Extends (or shortens, with a negative value) the current rest. */
+    fun addTime(context: Context, seconds: Int) {
+        val current = endAtMillis.value ?: return
+        val updated = current + seconds * 1000L
+        if (updated <= System.currentTimeMillis()) skip(context) else schedule(context, updated)
+    }
+
+    fun skip(context: Context) {
+        cancel(context)
+    }
+
+    @SuppressLint("MissingPermission") // guarded by canPostNotifications
+    private fun schedule(context: Context, endAtMillis: Long) {
+        this.endAtMillis.value = endAtMillis
         ensureChannels(context)
         if (canPostNotifications(context)) {
             val notification = NotificationCompat.Builder(context, CHANNEL_COUNTDOWN)
@@ -46,6 +72,8 @@ object RestTimerNotifier {
                 .setSilent(true)
                 .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
                 .setContentIntent(openAppIntent(context))
+                .addAction(0, "+15s", actionIntent(context, ACTION_ADD_TIME, REQUEST_ADD_TIME))
+                .addAction(0, "Skip", actionIntent(context, ACTION_SKIP, REQUEST_SKIP))
                 .build()
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
         }
@@ -55,6 +83,7 @@ object RestTimerNotifier {
     }
 
     fun cancel(context: Context) {
+        endAtMillis.value = null
         context.getSystemService(AlarmManager::class.java).cancel(alarmIntent(context))
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
@@ -62,6 +91,7 @@ object RestTimerNotifier {
     /** Called by [RestTimerReceiver] when the rest period ends. */
     @SuppressLint("MissingPermission") // guarded by canPostNotifications
     fun showRestOver(context: Context) {
+        endAtMillis.value = null
         ensureChannels(context)
         if (!canPostNotifications(context)) return
         val notification = NotificationCompat.Builder(context, CHANNEL_DONE)
@@ -107,6 +137,13 @@ object RestTimerNotifier {
         context,
         REQUEST_ALARM,
         Intent(context, RestTimerReceiver::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    private fun actionIntent(context: Context, action: String, requestCode: Int): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        requestCode,
+        Intent(context, RestTimerReceiver::class.java).setAction(action).putExtra(EXTRA_SECONDS, 15),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 

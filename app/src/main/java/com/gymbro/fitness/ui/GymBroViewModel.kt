@@ -734,19 +734,33 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
 
     // Rest Timer Core
     private fun startRestTimer(seconds: Int) {
-        timerJob?.cancel()
-        val endAtMillis = System.currentTimeMillis() + seconds * 1000L
         _restTimerTotalSeconds.value = seconds
-        _restTimerSecondsLeft.value = seconds
-        _restTimerActive.value = true
         RestTimerNotifier.start(getApplication(), seconds)
+        followRestTimer()
+    }
 
+    fun addRestTime(seconds: Int) {
+        RestTimerNotifier.addTime(getApplication(), seconds)
+        followRestTimer()
+    }
+
+    fun skipRest() = stopRestTimer()
+
+    /**
+     * Mirrors the shared end time into UI state. The notification's +15s / Skip buttons change
+     * the same end time, so the in-app countdown follows them too.
+     */
+    private fun followRestTimer() {
+        timerJob?.cancel()
         timerJob = viewModelScope.launch(Dispatchers.Default) {
-            // Derive from the end time so the countdown doesn't drift while the app is in the background.
             while (true) {
-                val millisLeft = endAtMillis - System.currentTimeMillis()
+                val endAt = RestTimerNotifier.endAtMillis.value ?: break
+                val millisLeft = endAt - System.currentTimeMillis()
                 if (millisLeft <= 0) break
-                _restTimerSecondsLeft.value = ((millisLeft + 999) / 1000).toInt()
+                val secondsLeft = ((millisLeft + 999) / 1000).toInt()
+                _restTimerSecondsLeft.value = secondsLeft
+                _restTimerTotalSeconds.value = maxOf(_restTimerTotalSeconds.value, secondsLeft)
+                _restTimerActive.value = true
                 delay(minOf(millisLeft, 250L))
             }
             _restTimerSecondsLeft.value = 0
