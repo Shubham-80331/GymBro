@@ -17,7 +17,7 @@ Goal: a clean, buildable, testable project to build on.
 |---|---|---|---|
 | F-01 | Change app ID to `com.gymbro.fitness`, move the `com.example` package, rename the project and theme | S | ☑ |
 | F-02 | Update the Compose BOM, lifecycle, activity, and OkHttp; remove unused deps (Firebase BOM, commented-out libs) | S | ☐ |
-| F-03 | Turn on Room `exportSchema`, commit `app/schemas/`, add migration tests (also covers the missing 1→2 path) | M | ☐ |
+| F-03 | Turn on Room `exportSchema`, commit `app/schemas/`, add migration tests (also covers the missing 1→2 path). Export is on; commit the generated `app/schemas/` from the first build, then add tests | M | ◐ |
 | F-04 | Set up CI on GitHub Actions: `lint`, `testDebugUnitTest`, `assembleDebug` on every PR (lint is non-blocking until the backlog is cleared) | S | ◐ |
 | F-05 | Add Hilt for dependency injection; the ViewModel currently builds its own repository and database | M | ☐ |
 | F-06 | Split the 800-line `GymBroViewModel` into Onboarding, Workout, Nutrition, Progress, and Coach ViewModels | M | ☐ |
@@ -79,7 +79,7 @@ Goal: every number on screen is real and no user data is lost.
 | ID | Task | Size |
 |---|---|---|
 | P-01 | **Move the Gemini key off the device**: Firebase AI Logic with App Check, or a Cloud Function proxy; per-user rate limit | M |
-| P-02 | Friendly AI error and retry states; never show raw exception text | S |
+| P-02 | ☑ Friendly AI error and retry states; never show raw exception text | S |
 | P-03 | R8 on (`isMinifyEnabled = true`, `isShrinkResources = true`), keep rules for Moshi and Room; test the release build | S |
 | P-04 | Upload keystore, Play App Signing, AAB build, `versionCode` from CI | S |
 | P-05 | Privacy policy (hosted), health and AI disclaimer at first launch and on the Coach screen | S |
@@ -156,7 +156,7 @@ Goal: every number on screen is real and no user data is lost.
 
 | ID | Feature | Size |
 |---|---|---|
-| AI-01 | Coach that knows your data: send recent workouts, PRs, adherence, and weight trend as context; persist chat history | M |
+| AI-01 | ◐ (multi-turn + recent workouts/weight in context done; chat not yet persisted) Coach that knows your data: send recent workouts, PRs, adherence, and weight trend as context; persist chat history | M |
 | AI-02 | Structured output → "Make me a 4-day split" creates a saveable routine in one tap | M |
 | AI-03 | AI meal logging: photo or "2 eggs + toast" → macros pre-filled for confirmation | M |
 | AI-04 | Weekly AI check-in report (volume trend, protein hit rate, next-week plan) | M |

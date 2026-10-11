@@ -210,7 +210,7 @@ fun CoachScreen(
                             Text(text = "AI", color = FitGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                         Text(
-                            text = if (isChatLoading) "GymBro is thinking gears..." else "Ready to lift heavy together!",
+                            text = if (isChatLoading) "GymBro is thinking..." else "AI advice can be wrong · not medical advice",
                             color = TextSecondary,
                             fontSize = 12.sp
                         )

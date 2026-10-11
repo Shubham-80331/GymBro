@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         StepsLog::class
     ],
     version = 3,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class GymBroDatabase : RoomDatabase() {
     abstract fun userProfileDao(): UserProfileDao

@@ -23,7 +23,8 @@ import java.util.*
 data class ChatMessage(
     val sender: String, // "User" or "GymBro"
     val text: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isError: Boolean = false // error notices are shown but never sent back to the model
 )
 
 class ActiveWorkoutSet(
@@ -685,10 +686,48 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             } else {
                 "User has not set up their profile or completed onboarding yet."
             }
+            val context = profileContext + "\n" + recentTrainingContext()
 
-            val reply = GeminiClient.generateGymBroResponse(text, profileContext)
-            _chatMessages.value = _chatMessages.value + ChatMessage(sender = "GymBro", text = reply)
+            val conversation = _chatMessages.value
+                .filter { !it.isError }
+                .map { CoachTurn(fromUser = it.sender == "User", text = it.text) }
+            val reply = GeminiClient.generateGymBroResponse(conversation, context)
+            _chatMessages.value = _chatMessages.value +
+                ChatMessage(sender = "GymBro", text = reply.text, isError = reply.isError)
             _isChatLoading.value = false
+        }
+    }
+
+    /** Recent sessions and weight trend so the coach can answer from the user's real data. */
+    private suspend fun recentTrainingContext(): String {
+        val dateFormat = SimpleDateFormat("EEE d MMM", Locale.US)
+        // Read from the database directly: the UI-facing state flows are empty until a screen subscribes.
+        val sessions = repository.allSessions.first().take(5)
+        val weights = repository.allWeightLogs.first()
+        return buildString {
+            appendLine("Recent workouts (newest first):")
+            if (sessions.isEmpty()) {
+                appendLine("- none logged yet")
+            } else {
+                sessions.forEach { session ->
+                    appendLine(
+                        "- ${dateFormat.format(Date(session.dateMillis))}: ${session.routineName}, " +
+                            "${session.completedSetsCount} sets, ${session.totalVolumeLoadKg.toInt()} kg volume, " +
+                            "${session.activeTimeSeconds / 60} min"
+                    )
+                }
+            }
+            appendLine("Current workout streak: ${_workoutStreak.value} days")
+            if (weights.size >= 2) {
+                val change = weights.first().weightKg - weights.last().weightKg
+                append(
+                    String.format(
+                        Locale.US,
+                        "Weight trend: %.1f kg -> %.1f kg (%+.1f kg) over %d weigh-ins",
+                        weights.last().weightKg, weights.first().weightKg, change, weights.size
+                    )
+                )
+            }
         }
     }
 

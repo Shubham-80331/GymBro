@@ -10,7 +10,9 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.Query
+import java.io.IOException
 import java.util.concurrent.TimeUnit
+import retrofit2.HttpException
 import com.gymbro.fitness.BuildConfig
 
 @JsonClass(generateAdapter = true)
@@ -20,8 +22,14 @@ data class GeminiPart(
 
 @JsonClass(generateAdapter = true)
 data class GeminiContent(
-    val parts: List<GeminiPart>
+    val parts: List<GeminiPart>,
+    val role: String? = null // "user" or "model"; omitted for the system instruction
 )
+
+/** One message of the coach conversation, oldest first. */
+data class CoachTurn(val fromUser: Boolean, val text: String)
+
+data class CoachReply(val text: String, val isError: Boolean = false)
 
 @JsonClass(generateAdapter = true)
 data class GeminiGenerateRequest(
@@ -69,7 +77,9 @@ object GeminiClient {
             .create(GeminiApiService::class.java)
     }
 
-    suspend fun generateGymBroResponse(prompt: String, profileContext: String): String {
+    private const val MAX_HISTORY_TURNS = 20
+
+    suspend fun generateGymBroResponse(conversation: List<CoachTurn>, profileContext: String): CoachReply {
         val apiKey = try {
             BuildConfig.GEMINI_API_KEY
         } catch (e: Exception) {
@@ -77,30 +87,53 @@ object GeminiClient {
         }
 
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY" || apiKey == "GEMINI_API_KEY") {
-            return "Yo bro! Looks like your Gemini API key isn't configured in the AI Studio Secrets panel yet. But as your virtual GymBro, I still got you! Keep lifting heavy, hit those protein macros, and remember: progressive overload is key! Add your API key to unlock real-time custom AI coaching advice."
+            return CoachReply(
+                "The AI coach isn't set up in this build yet. Your workouts and nutrition tracking still work normally.",
+                isError = true
+            )
         }
 
         val systemInstructionText = """
-            You are "GymBro", an incredibly energetic, supportive, and knowledgeable virtual gym partner, workout coach, and nutrition advisor.
-            Your tone is motivational, slightly colloquial (uses terms like "bro", "let's lift", "protein power", "PR", "beast mode"), but exceptionally scientific and professional when it comes to workout advice and caloric splits.
-            Always keep advice practical and focused on safety, progressive overload, and hitting daily macros.
-            Here is the user's profile context:
+            You are "GymBro", an energetic, supportive, and knowledgeable virtual gym partner, workout coach, and nutrition advisor.
+            Your tone is motivational and casual (terms like "bro", "PR", "beast mode" are fine), but your training and nutrition advice must be evidence-based and specific.
+            Keep advice practical and focused on safety, progressive overload, and hitting daily macros. Use the user's logged data below when it is relevant.
+            You are not a doctor: for pain, injury, medical conditions, or eating disorders, tell the user to see a qualified professional.
+            Here is the user's context:
             $profileContext
         """.trimIndent()
 
+        // Gemini expects the conversation to start with a user turn.
+        val turns = conversation.takeLast(MAX_HISTORY_TURNS).dropWhile { !it.fromUser }
         val request = GeminiGenerateRequest(
-            contents = listOf(
-                GeminiContent(parts = listOf(GeminiPart(text = prompt)))
-            ),
+            contents = turns.map { turn ->
+                GeminiContent(
+                    parts = listOf(GeminiPart(text = turn.text)),
+                    role = if (turn.fromUser) "user" else "model"
+                )
+            },
             systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = systemInstructionText)))
         )
 
         return try {
             val response = api.generateContent(apiKey, request)
-            response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                ?: "No response from GymBro. Keep training hard anyway!"
+            val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            if (text.isNullOrBlank()) {
+                CoachReply("I couldn't come up with an answer to that one. Try asking it a different way.", isError = true)
+            } else {
+                CoachReply(text)
+            }
+        } catch (e: HttpException) {
+            val message = when (e.code()) {
+                429 -> "Lots of people are asking questions right now. Give it a minute and try again."
+                400 -> "I couldn't process that message. Try rephrasing it."
+                401, 403 -> "The AI coach isn't available in this build right now."
+                else -> "The coach is having trouble right now. Please try again shortly."
+            }
+            CoachReply(message, isError = true)
+        } catch (e: IOException) {
+            CoachReply("Can't reach the coach. Check your internet connection and try again.", isError = true)
         } catch (e: Exception) {
-            "Yo bro, I had a slight connection hiccup: ${e.localizedMessage}. Keep training hard, don't let anything slow you down! 💪"
+            CoachReply("Something went wrong on my side. Please try again.", isError = true)
         }
     }
 }
