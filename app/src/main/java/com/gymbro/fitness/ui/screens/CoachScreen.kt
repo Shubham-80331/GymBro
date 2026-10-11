@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.gymbro.fitness.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,9 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.ChatMessage
-import com.example.ui.GymBroViewModel
-import com.example.ui.theme.*
+import com.gymbro.fitness.ui.ChatMessage
+import com.gymbro.fitness.ui.GymBroViewModel
+import com.gymbro.fitness.ui.theme.*
 
 @Composable
 fun CoachScreen(

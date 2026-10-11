@@ -1,8 +1,8 @@
-package com.example
+package com.gymbro.fitness
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.example.ui.theme.MyApplicationTheme
+import com.gymbro.fitness.ui.theme.GymBroTheme
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -22,7 +22,7 @@ class GreetingScreenshotTest {
   @Test
   fun greeting_screenshot() {
     composeTestRule.setContent {
-      MyApplicationTheme {
+      GymBroTheme {
         androidx.compose.material3.Text("GYMBRO ACTIVE SCREENSHOT V1")
       }
     }

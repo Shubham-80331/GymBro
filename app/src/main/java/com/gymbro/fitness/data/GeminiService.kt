@@ -1,4 +1,4 @@
-package com.example.data
+package com.gymbro.fitness.data
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
@@ -11,7 +11,7 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
-import com.example.BuildConfig
+import com.gymbro.fitness.BuildConfig
 
 @JsonClass(generateAdapter = true)
 data class GeminiPart(

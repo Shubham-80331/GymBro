@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.gymbro.fitness"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.gymbro.kdwopq"
+    applicationId = "com.gymbro.fitness"
     minSdk = 24
     targetSdk = 36
     versionCode = 1

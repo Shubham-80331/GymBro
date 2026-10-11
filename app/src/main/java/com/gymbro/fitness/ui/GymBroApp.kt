@@ -1,4 +1,4 @@
-package com.example.ui
+package com.gymbro.fitness.ui
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -15,8 +15,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.screens.*
-import com.example.ui.theme.*
+import com.gymbro.fitness.ui.screens.*
+import com.gymbro.fitness.ui.theme.*
 
 enum class GymBroTab(val title: String) {
     COACH("Coach"),

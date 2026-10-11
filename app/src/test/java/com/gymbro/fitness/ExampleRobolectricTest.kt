@@ -1,4 +1,4 @@
-package com.example
+package com.gymbro.fitness
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
