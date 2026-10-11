@@ -10,6 +10,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -61,6 +63,8 @@ fun WorkoutsScreen(
     var routineDescInput by remember { mutableStateOf("") }
     var selectedExercisesForRoutine by remember { mutableStateOf(listOf<RoutineExercise>()) }
     var showExercisePicker by remember { mutableStateOf(false) }
+    var exerciseQuery by remember { mutableStateOf("") }
+    var exerciseMuscleFilter by remember { mutableStateOf<String?>(null) }
     val allExercises by viewModel.allExercises.collectAsState()
 
     // Edit routine state
@@ -456,7 +460,7 @@ fun WorkoutsScreen(
             title = { Text("Select Exercise", color = GymVolt, fontWeight = FontWeight.Bold) },
             text = {
                 Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp)
                 ) {
                     // Custom exercise creation toggle
                     if (showCustomExerciseForm) {
@@ -548,11 +552,54 @@ fun WorkoutsScreen(
                         }
                     }
 
+                    OutlinedTextField(
+                        value = exerciseQuery,
+                        onValueChange = { exerciseQuery = it },
+                        placeholder = { Text("Search exercises", color = TextSecondary) },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        (listOf<String?>(null) + allExercises.map { it.muscleGroup }.distinct().sorted()).forEach { group ->
+                            val selected = exerciseMuscleFilter == group
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (selected) GymVolt else DarkCard)
+                                    .clickable { exerciseMuscleFilter = group }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = group ?: "All",
+                                    fontSize = 12.sp,
+                                    color = if (selected) Color.Black else TextPrimary
+                                )
+                            }
+                        }
+                    }
+                    val filteredExercises = allExercises.filter { ex ->
+                        (exerciseMuscleFilter == null || ex.muscleGroup == exerciseMuscleFilter) &&
+                            (exerciseQuery.isBlank() || ex.name.contains(exerciseQuery.trim(), ignoreCase = true) ||
+                                ex.equipment.contains(exerciseQuery.trim(), ignoreCase = true))
+                    }
+
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(allExercises) { ex ->
+                        if (filteredExercises.isEmpty()) {
+                            item {
+                                Text("No matches. Create it as a custom exercise above.", color = TextSecondary, fontSize = 12.sp)
+                            }
+                        }
+                        items(filteredExercises, key = { it.id }) { ex ->
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()

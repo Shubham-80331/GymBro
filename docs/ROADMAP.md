@@ -112,9 +112,9 @@ Goal: every number on screen is real and no user data is lost.
 ### 3B. Exercise library
 | ID | Feature | Size |
 |---|---|---|
-| E-01 | Expand from 24 to 300+ exercises (seed from an open dataset), with primary and secondary muscles and equipment | L |
+| E-01 | ◐ (92 built-in exercises incl. Full Body; images/cues still to do) Expand from 24 to 300+ exercises (seed from an open dataset), with primary and secondary muscles and equipment | L |
 | E-02 | Exercise detail page: animation or illustration, form cues, history, 1RM chart | M |
-| E-03 | Search and filter by muscle and equipment | S |
+| E-03 | ☑ Search and filter by muscle and equipment | S |
 
 ### 3C. Progression intelligence
 | ID | Feature | Size |

@@ -255,6 +255,8 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         )
 
         restoreActiveWorkout()
+        // New built-in exercises from app updates reach existing installs too.
+        viewModelScope.launch(Dispatchers.IO) { ensureBuiltInExercises(database) }
 
         // Calculate current workout streak
         viewModelScope.launch {
