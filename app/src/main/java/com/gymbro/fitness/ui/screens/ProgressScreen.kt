@@ -42,6 +42,8 @@ fun ProgressScreen(
     val exerciseBests by viewModel.exerciseBests.collectAsState()
     val unit by viewModel.weightUnit.collectAsState()
     val weeklySets by viewModel.weeklySetsByMuscle.collectAsState()
+    val streak by viewModel.workoutStreak.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var selectedLift by remember { mutableStateOf<com.gymbro.fitness.ui.ExerciseBest?>(null) }
 
     selectedLift?.let { lift ->
@@ -530,17 +532,6 @@ fun ProgressScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.BarChart, contentDescription = "Analytics", tint = GymVolt)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "LAST 7 DAYS",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = TextPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
                         val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
                         val weekSessions = sessions.filter { it.dateMillis >= weekAgo }
                         val weekVolume = weekSessions.sumOf { it.totalVolumeLoadKg }
@@ -561,6 +552,36 @@ fun ProgressScreen(
                                 append(String.format(Locale.US, " Weight %+.1f %s.", unit.fromKg(weekWeightChange), unit.label))
                             }
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.BarChart, contentDescription = null, tint = GymVolt)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "LAST 7 DAYS",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (weekSessions.isNotEmpty()) {
+                                val weekPrs = exerciseBests.count { it.achievedAtMillis >= weekAgo }
+                                IconButton(onClick = {
+                                    val recap = buildString {
+                                        append("My week on GymBro 💪\n")
+                                        append("${weekSessions.size} workouts · ")
+                                        append(String.format(Locale.US, "%,.0f %s lifted", unit.fromKg(weekVolume), unit.label))
+                                        if (weekPrs > 0) append(" · $weekPrs lift PR${if (weekPrs == 1) "" else "s"}")
+                                        if (streak > 1) append("\n🔥 $streak day streak")
+                                    }
+                                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                                        .setType("text/plain")
+                                        .putExtra(android.content.Intent.EXTRA_TEXT, recap)
+                                    context.startActivity(android.content.Intent.createChooser(send, "Share your week"))
+                                }) {
+                                    Icon(imageVector = Icons.Default.Share, contentDescription = "Share your week", tint = GymVolt)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = summaryText,
                             color = TextSecondary,

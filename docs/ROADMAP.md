@@ -145,7 +145,7 @@ Goal: every number on screen is real and no user data is lost.
 | H-01 | Health Connect: read steps, weight, sleep, HR; write workouts (replaces manual steps) | M |
 | H-02 | ◐ Reminders: workout days, evening protein gap, water, weekly weigh-in (daily workout reminder done) | M |
 | H-03 | ◐ Home-screen widgets: today's workout, macros left, streak (streak + calories/protein left widget done; today's workout next) | M |
-| H-04 | Achievements and badges; shareable weekly recap card | M |
+| H-04 | ◐ Achievements and badges; shareable weekly recap card (share-your-week text done; badges next) | M |
 | H-05 | Progress photos: private, stored on device, side-by-side compare | M |
 
 **Done when:** a lifter can run a full program for 4 weeks without leaving the app → production release v1.0.
