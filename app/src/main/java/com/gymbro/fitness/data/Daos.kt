@@ -145,6 +145,18 @@ interface HydrationLogDao {
 }
 
 @Dao
+interface ChatMessageDao {
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC, id ASC")
+    suspend fun getAll(): List<ChatMessageEntity>
+
+    @Insert
+    suspend fun insert(message: ChatMessageEntity)
+
+    @Query("DELETE FROM chat_messages")
+    suspend fun clear()
+}
+
+@Dao
 interface StepsLogDao {
     @Query("SELECT * FROM steps_logs ORDER BY dateString DESC")
     fun getAllStepsLogs(): Flow<List<StepsLog>>

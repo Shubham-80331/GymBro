@@ -281,7 +281,7 @@ fun CoachScreen(
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -305,6 +305,11 @@ fun CoachScreen(
                             color = TextSecondary,
                             fontSize = 12.sp
                         )
+                    }
+                    if (messages.size > 1) {
+                        IconButton(onClick = { viewModel.clearChat() }) {
+                            Icon(imageVector = Icons.Default.DeleteSweep, contentDescription = "Clear chat", tint = TextSecondary)
+                        }
                     }
                 }
             }

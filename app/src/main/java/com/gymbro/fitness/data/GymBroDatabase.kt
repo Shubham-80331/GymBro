@@ -21,9 +21,10 @@ import kotlinx.coroutines.launch
         FoodLog::class,
         CustomFood::class,
         HydrationLog::class,
-        StepsLog::class
+        StepsLog::class,
+        ChatMessageEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class GymBroDatabase : RoomDatabase() {
@@ -37,6 +38,7 @@ abstract class GymBroDatabase : RoomDatabase() {
     abstract fun customFoodDao(): CustomFoodDao
     abstract fun hydrationLogDao(): HydrationLogDao
     abstract fun stepsLogDao(): StepsLogDao
+    abstract fun chatMessageDao(): ChatMessageDao
 
     companion object {
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -45,6 +47,12 @@ abstract class GymBroDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE `workout_sessions` ADD COLUMN `caloriesBurnt` INTEGER NOT NULL DEFAULT 0")
                 // Create steps_logs table
                 database.execSQL("CREATE TABLE IF NOT EXISTS `steps_logs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dateString` TEXT NOT NULL, `stepsCount` INTEGER NOT NULL, `caloriesBurnt` INTEGER NOT NULL)")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE TABLE IF NOT EXISTS `chat_messages` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sender` TEXT NOT NULL, `text` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `isError` INTEGER NOT NULL)")
             }
         }
 
@@ -58,7 +66,7 @@ abstract class GymBroDatabase : RoomDatabase() {
                     GymBroDatabase::class.java,
                     "gymbro_database"
                 )
-                .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                 .addCallback(DatabaseCallback(scope))
                 .build()
                 INSTANCE = instance

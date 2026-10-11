@@ -136,3 +136,12 @@ data class StepsLog(
     val stepsCount: Int,
     val caloriesBurnt: Int
 )
+
+@Entity(tableName = "chat_messages")
+data class ChatMessageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val sender: String, // "User" or "GymBro"
+    val text: String,
+    val timestamp: Long,
+    val isError: Boolean = false
+)

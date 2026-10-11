@@ -270,6 +270,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         )
 
         restoreActiveWorkout()
+        restoreChatHistory(database.chatMessageDao())
         // New built-in exercises from app updates reach existing installs too.
         viewModelScope.launch(Dispatchers.IO) { ensureBuiltInExercises(database) }
 
@@ -839,9 +840,44 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Chatbot AI Assistant Gain Partner
+    private lateinit var chatDao: ChatMessageDao
+
+    private fun restoreChatHistory(dao: ChatMessageDao) {
+        chatDao = dao
+        viewModelScope.launch {
+            val saved = withContext(Dispatchers.IO) { dao.getAll() }
+            if (saved.isNotEmpty()) {
+                val greeting = _chatMessages.value.take(1)
+                _chatMessages.value = greeting + saved.map {
+                    ChatMessage(sender = it.sender, text = it.text, timestamp = it.timestamp, isError = it.isError)
+                }
+            }
+        }
+    }
+
+    /** Shows a message and saves it so the conversation survives app restarts. */
+    private fun appendChatMessage(message: ChatMessage) {
+        _chatMessages.value = _chatMessages.value + message
+        viewModelScope.launch(Dispatchers.IO) {
+            chatDao.insert(
+                ChatMessageEntity(
+                    sender = message.sender,
+                    text = message.text,
+                    timestamp = message.timestamp,
+                    isError = message.isError
+                )
+            )
+        }
+    }
+
+    fun clearChat() {
+        _chatMessages.value = _chatMessages.value.take(1)
+        viewModelScope.launch(Dispatchers.IO) { chatDao.clear() }
+    }
+
     fun sendMessageToGymBro(text: String) {
         val userMsg = ChatMessage(sender = "User", text = text)
-        _chatMessages.value = _chatMessages.value + userMsg
+        appendChatMessage(userMsg)
         _isChatLoading.value = true
 
         viewModelScope.launch {
@@ -851,8 +887,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 .filter { !it.isError }
                 .map { CoachTurn(fromUser = it.sender == "User", text = it.text) }
             val reply = GeminiClient.generateGymBroResponse(conversation, context)
-            _chatMessages.value = _chatMessages.value +
-                ChatMessage(sender = "GymBro", text = reply.text, isError = reply.isError)
+            appendChatMessage(ChatMessage(sender = "GymBro", text = reply.text, isError = reply.isError))
             _isChatLoading.value = false
         }
     }
@@ -958,9 +993,11 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         val draft = _aiRoutineDraft.value ?: return
         _aiRoutineDraft.value = null
         createRoutine(draft.name, draft.description, draft.exercises)
-        _chatMessages.value = _chatMessages.value + ChatMessage(
-            sender = "GymBro",
-            text = "Saved \"${draft.name}\" to your routines. Find it in the Workout tab and let's get after it! 💪"
+        appendChatMessage(
+            ChatMessage(
+                sender = "GymBro",
+                text = "Saved \"${draft.name}\" to your routines. Find it in the Workout tab and let's get after it! 💪"
+            )
         )
     }
 
