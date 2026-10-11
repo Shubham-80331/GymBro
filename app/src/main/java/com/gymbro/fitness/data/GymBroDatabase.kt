@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         StepsLog::class,
         ChatMessageEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class GymBroDatabase : RoomDatabase() {
@@ -56,6 +56,13 @@ abstract class GymBroDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `workout_set_logs` ADD COLUMN `setType` TEXT NOT NULL DEFAULT 'WORKING'")
+                db.execSQL("ALTER TABLE `workout_sessions` ADD COLUMN `notes` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile
         private var INSTANCE: GymBroDatabase? = null
 
@@ -66,7 +73,7 @@ abstract class GymBroDatabase : RoomDatabase() {
                     GymBroDatabase::class.java,
                     "gymbro_database"
                 )
-                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(DatabaseCallback(scope))
                 .build()
                 INSTANCE = instance

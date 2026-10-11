@@ -154,6 +154,15 @@ class FitnessCalculatorTest {
         assertEquals(0.0, FitnessCalculator.deloadWeight(0.0), 0.001)
     }
 
+    @Test
+    fun `set types cycle and only warm-ups are excluded from work`() {
+        assertEquals(SetType.WARMUP, SetType.WORKING.next())
+        assertEquals(SetType.WORKING, SetType.FAILURE.next())
+        assertEquals(false, SetType.WARMUP.countsAsWork)
+        assertTrue(SetType.DROP.countsAsWork && SetType.FAILURE.countsAsWork)
+        assertEquals(SetType.WORKING, SetType.fromStorage("unknown"))
+    }
+
     private fun noon(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 12)
         set(Calendar.MINUTE, 0)

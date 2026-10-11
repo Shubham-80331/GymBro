@@ -78,7 +78,7 @@ interface WorkoutSetLogDao {
     @Query("""
         SELECT MAX(CASE WHEN reps = 1 THEN weightKg ELSE weightKg * (1 + reps / 30.0) END)
         FROM workout_set_logs
-        WHERE exerciseId = :exerciseId AND weightKg > 0 AND reps > 0
+        WHERE exerciseId = :exerciseId AND weightKg > 0 AND reps > 0 AND setType != 'WARMUP'
     """)
     suspend fun getBestEstimatedOneRepMax(exerciseId: String): Double?
 

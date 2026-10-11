@@ -44,10 +44,11 @@ class GymBroRepository(
     suspend fun saveEditedSession(session: WorkoutSession, sets: List<WorkoutSetLog>, removedIds: List<Int>) {
         removedIds.forEach { workoutSetLogDao.deleteSetLog(it) }
         sets.forEach { workoutSetLogDao.updateSetLog(it) }
+        val workSets = sets.filter { com.gymbro.fitness.domain.SetType.fromStorage(it.setType).countsAsWork }
         workoutSessionDao.insertSession(
             session.copy(
-                totalVolumeLoadKg = sets.sumOf { it.weightKg * it.reps },
-                completedSetsCount = sets.size
+                totalVolumeLoadKg = workSets.sumOf { it.weightKg * it.reps },
+                completedSetsCount = workSets.size
             )
         )
     }

@@ -103,10 +103,10 @@ Goal: every number on screen is real and no user data is lost.
 |---|---|---|
 | W-01 | ☑ kg/lb unit toggle (store kg, convert in the UI) | S |
 | W-02 | ☑ "Previous" column per set (last weight × reps), prefill from the last session | S |
-| W-03 | Set types: warm-up, working, drop, failure; optional RPE/RIR | M |
+| W-03 | ◐ (warm-up / drop / failure set types done; RPE/RIR later) Set types: warm-up, working, drop, failure; optional RPE/RIR | M |
 | W-04 | Add, swap, or reorder exercises mid-workout; supersets | M |
 | W-05 | ☑ Plate calculator (bar weight setting, available plates) | S |
-| W-06 | Notes per exercise and per session | S |
+| W-06 | ◐ Notes per exercise and per session (session notes done) | S |
 | W-07 | ☑ Workout summary screen: volume, PRs hit, duration, muscles worked | M |
 
 ### 3B. Exercise library

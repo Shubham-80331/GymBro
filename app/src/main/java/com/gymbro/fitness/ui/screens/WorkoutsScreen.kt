@@ -41,6 +41,7 @@ import com.gymbro.fitness.ui.ActiveWorkoutExercise
 import com.gymbro.fitness.domain.FitnessCalculator
 import com.gymbro.fitness.domain.ProgramTemplate
 import com.gymbro.fitness.domain.ProgramTemplates
+import com.gymbro.fitness.domain.SetType
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.domain.WeightUnit
@@ -934,6 +935,27 @@ fun ActiveWorkoutPanel(
                     }
                 }
 
+                item {
+                    OutlinedTextField(
+                        value = activeSession.notes,
+                        onValueChange = { viewModel.updateSessionNotes(it) },
+                        placeholder = { Text("Session notes (sleep, energy, how it felt…)", color = TextSecondary, fontSize = 13.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GymVolt,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                    Text(
+                        text = "Tip: tap a set number to mark it as warm-up (W), drop set (D) or to failure (F).",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
                 itemsIndexed(activeSession.exercises) { exIndex, exercise ->
                     ActiveExerciseCard(
                         exercise = exercise,
@@ -1031,7 +1053,28 @@ fun ActiveExerciseCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Set index
-                    Text(text = "S${set.setIndex + 1}", modifier = Modifier.weight(0.6f), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    // Tap to cycle the set type: working → warm-up (W) → drop (D) → failure (F)
+                    val workingNumber = exercise.sets.take(set.setIndex + 1).count { it.setType == SetType.WORKING }
+                    Box(
+                        modifier = Modifier
+                            .weight(0.6f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(onClickLabel = "Change set type") { viewModel.cycleSetType(exerciseIndex, set.setIndex) }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (set.setType == SetType.WORKING) "$workingNumber" else set.setType.shortLabel,
+                            color = when (set.setType) {
+                                SetType.WARMUP -> ElectricBlue
+                                SetType.DROP -> ProteinOrange
+                                SetType.FAILURE -> ErrorRed
+                                SetType.WORKING -> TextPrimary
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
 
                     // Target details
                     Text(
@@ -1142,6 +1185,9 @@ private fun WorkoutHistoryRow(session: WorkoutSession, unit: WeightUnit, onClick
                     color = TextSecondary,
                     fontSize = 11.sp
                 )
+                if (session.notes.isNotBlank()) {
+                    Text(text = "“${session.notes}”", color = TextSecondary, fontSize = 11.sp, maxLines = 2)
+                }
             }
             IconButton(onClick = onDelete) {
                 Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete workout", tint = TextSecondary)

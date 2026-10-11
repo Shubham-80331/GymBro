@@ -1,5 +1,6 @@
 package com.gymbro.fitness.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.squareup.moshi.JsonClass
@@ -64,7 +65,8 @@ data class WorkoutSession(
     val activeTimeSeconds: Int,
     val totalVolumeLoadKg: Double,
     val completedSetsCount: Int,
-    val caloriesBurnt: Int = 0
+    val caloriesBurnt: Int = 0,
+    @ColumnInfo(defaultValue = "''") val notes: String = ""
 )
 
 @Entity(tableName = "workout_set_logs")
@@ -77,7 +79,9 @@ data class WorkoutSetLog(
     val weightKg: Double,
     val reps: Int,
     val setIndex: Int, // 0, 1, 2...
-    val isPr: Boolean = false
+    val isPr: Boolean = false,
+    // WARMUP, WORKING, DROP or FAILURE; warm-ups don't count toward volume or PRs.
+    @ColumnInfo(defaultValue = "'WORKING'") val setType: String = "WORKING"
 )
 
 @Entity(tableName = "weight_logs")
