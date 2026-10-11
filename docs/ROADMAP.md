@@ -82,9 +82,9 @@ Goal: every number on screen is real and no user data is lost.
 | P-02 | ☑ Friendly AI error and retry states; never show raw exception text | S |
 | P-03 | R8 on (`isMinifyEnabled = true`, `isShrinkResources = true`), keep rules for Moshi and Room; test the release build | S |
 | P-04 | Upload keystore, Play App Signing, AAB build, `versionCode` from CI | S |
-| P-05 | Privacy policy (hosted), health and AI disclaimer at first launch and on the Coach screen | S |
-| P-06 | Settings → "Export my data" (JSON/CSV) and "Delete all my data" | M |
-| P-07 | Configure `backup_rules.xml` and `data_extraction_rules.xml` (back up the DB, exclude photos and caches) | S |
+| P-05 | ◐ Privacy policy (hosted), health and AI disclaimer at first launch and on the Coach screen (disclaimers in Coach header and Settings done; hosted policy still needed) | S |
+| P-06 | ☑ Settings → "Export my data" (JSON; CSV later) and "Delete all my data" | M |
+| P-07 | ☑ Configure `backup_rules.xml` and `data_extraction_rules.xml` (back up the DB, exclude photos and caches) | S |
 | P-08 | Crashlytics plus privacy-friendly analytics, behind a consent toggle | S |
 | P-09 | Real launcher icon, splash screen (`core-splashscreen`), light theme option | M |
 | P-10 | Accessibility pass: content descriptions, 48dp touch targets, font scaling, contrast | M |

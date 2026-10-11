@@ -1,6 +1,8 @@
 package com.gymbro.fitness.data
 
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class GymBroRepository(
     private val userProfileDao: UserProfileDao,
@@ -63,8 +65,40 @@ class GymBroRepository(
     // Hydration Logs
     fun getWaterIntakeForDay(dateString: String): Flow<Int> = hydrationLogDao.getWaterIntakeForDay(dateString)
     suspend fun logWaterIntake(log: HydrationLog) = hydrationLogDao.insertHydrationLog(log)
+    suspend fun getAllHydrationLogs(): List<HydrationLog> = hydrationLogDao.getAllHydrationLogs()
 
     // Steps Logs
     val allStepsLogs: Flow<List<StepsLog>> = stepsLogDao.getAllStepsLogs()
     suspend fun insertStepsLog(log: StepsLog) = stepsLogDao.insertStepsLog(log)
+
+    /** Everything the user has entered, for "Export my data". Built-in exercises are left out. */
+    suspend fun buildExport(nowMillis: Long): GymBroExport = GymBroExport(
+        exportedAtMillis = nowMillis,
+        profile = userProfileDao.getUserProfileOneShot(),
+        customExercises = exerciseDao.getAllExercises().first().filter { it.isCustom },
+        routines = routineDao.getAllRoutines().first(),
+        workoutSessions = workoutSessionDao.getAllSessions().first(),
+        workoutSets = workoutSetLogDao.getAllSetLogs().first(),
+        weightLogs = weightLogDao.getAllWeightLogs().first(),
+        foodLogs = foodLogDao.getAllFoodLogs().first(),
+        customFoods = customFoodDao.getAllCustomFoods().first(),
+        hydrationLogs = hydrationLogDao.getAllHydrationLogs(),
+        stepsLogs = stepsLogDao.getAllStepsLogs().first()
+    )
 }
+
+@JsonClass(generateAdapter = true)
+data class GymBroExport(
+    val formatVersion: Int = 1,
+    val exportedAtMillis: Long,
+    val profile: UserProfile?,
+    val customExercises: List<Exercise>,
+    val routines: List<Routine>,
+    val workoutSessions: List<WorkoutSession>,
+    val workoutSets: List<WorkoutSetLog>,
+    val weightLogs: List<WeightLog>,
+    val foodLogs: List<FoodLog>,
+    val customFoods: List<CustomFood>,
+    val hydrationLogs: List<HydrationLog>,
+    val stepsLogs: List<StepsLog>
+)

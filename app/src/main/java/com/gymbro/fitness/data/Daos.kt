@@ -132,6 +132,9 @@ interface HydrationLogDao {
 
     @Insert
     suspend fun insertHydrationLog(log: HydrationLog)
+
+    @Query("SELECT * FROM hydration_logs ORDER BY dateString DESC, id DESC")
+    suspend fun getAllHydrationLogs(): List<HydrationLog>
 }
 
 @Dao

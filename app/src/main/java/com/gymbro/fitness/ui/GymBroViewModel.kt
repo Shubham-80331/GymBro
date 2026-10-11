@@ -75,6 +75,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     private val activeWorkoutAdapter = moshi.adapter(ActiveWorkoutSnapshot::class.java)
     private var saveActiveWorkoutJob: Job? = null
 
+    private val database: GymBroDatabase
     private val repository: GymBroRepository
     val userProfile: StateFlow<UserProfile?>
     val allRoutines: StateFlow<List<Routine>>
@@ -137,7 +138,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     val isPrCelebration: StateFlow<String?> = _isPrCelebration.asStateFlow()
 
     init {
-        val database = GymBroDatabase.getDatabase(application, viewModelScope)
+        database = GymBroDatabase.getDatabase(application, viewModelScope)
         repository = GymBroRepository(
             userProfileDao = database.userProfileDao(),
             exerciseDao = database.exerciseDao(),
@@ -695,6 +696,36 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             _chatMessages.value = _chatMessages.value +
                 ChatMessage(sender = "GymBro", text = reply.text, isError = reply.isError)
             _isChatLoading.value = false
+        }
+    }
+
+    // Settings: data export and deletion
+
+    /** Writes everything the user entered as JSON to [uri]; reports success on the main thread. */
+    fun exportData(uri: android.net.Uri, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    val export = repository.buildExport(System.currentTimeMillis())
+                    val json = moshi.adapter(GymBroExport::class.java).indent("  ").toJson(export)
+                    getApplication<Application>().contentResolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(json.toByteArray(Charsets.UTF_8))
+                    } ?: error("Could not open $uri")
+                }.isSuccess
+            }
+            onDone(ok)
+        }
+    }
+
+    /** Wipes every table and restores the built-in exercises and starter routines. */
+    fun deleteAllData() {
+        cancelWorkout()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                database.clearAllTables()
+                seedDefaults(database)
+            }
+            _chatMessages.value = _chatMessages.value.take(1) // keep only the greeting
         }
     }
 

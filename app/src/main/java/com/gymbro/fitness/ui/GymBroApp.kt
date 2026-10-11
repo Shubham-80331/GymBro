@@ -33,6 +33,11 @@ fun GymBroApp(
 ) {
     val profile by viewModel.userProfile.collectAsState()
     var currentTab by remember { mutableStateOf(GymBroTab.COACH) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    if (showSettings) {
+        SettingsDialog(viewModel = viewModel, onDismiss = { showSettings = false })
+    }
 
     if (profile == null || !profile!!.onboardingCompleted) {
         // Multi-Step Onboarding Vitals Flow
@@ -99,6 +104,13 @@ fun GymBroApp(
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary
+                            )
+                        }
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = TextSecondary
                             )
                         }
                     }
