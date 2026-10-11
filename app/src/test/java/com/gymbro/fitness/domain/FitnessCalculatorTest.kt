@@ -72,6 +72,25 @@ class FitnessCalculatorTest {
         assertEquals(0, FitnessCalculator.workoutStreak(emptyList(), now))
     }
 
+    @Test
+    fun `overload adds an increment when every set hit the target`() {
+        val last = listOf(LoggedSet(60.0, 8), LoggedSet(60.0, 8), LoggedSet(60.0, 9))
+        assertEquals(62.5, FitnessCalculator.suggestNextWeight(last, targetReps = 8, routineWeightKg = 50.0), 0.001)
+    }
+
+    @Test
+    fun `overload repeats the weight after a missed rep target`() {
+        val last = listOf(LoggedSet(60.0, 8), LoggedSet(60.0, 6))
+        assertEquals(60.0, FitnessCalculator.suggestNextWeight(last, targetReps = 8, routineWeightKg = 50.0), 0.001)
+    }
+
+    @Test
+    fun `overload uses small steps for light weights and routine weight without history`() {
+        assertEquals(11.0, FitnessCalculator.suggestNextWeight(listOf(LoggedSet(10.0, 12)), 12, 8.0), 0.001)
+        assertEquals(50.0, FitnessCalculator.suggestNextWeight(emptyList(), 8, 50.0), 0.001)
+        assertEquals(0.0, FitnessCalculator.suggestNextWeight(listOf(LoggedSet(0.0, 10)), 8, 0.0), 0.001)
+    }
+
     private fun noon(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 12)
         set(Calendar.MINUTE, 0)

@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.gymbro.fitness.data.*
 import com.gymbro.fitness.domain.FitnessCalculator
+import com.gymbro.fitness.domain.LoggedSet
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -33,7 +34,8 @@ class ActiveWorkoutSet(
     val targetReps: Int,
     initialActualWeightKg: String = "",
     initialActualReps: String = "",
-    initialIsCompleted: Boolean = false
+    initialIsCompleted: Boolean = false,
+    val previousLabel: String = "-" // what was lifted in this set last session, e.g. "60×8"
 ) {
     var actualWeightKg by mutableStateOf(initialActualWeightKg)
     var actualReps by mutableStateOf(initialActualReps)
@@ -335,14 +337,22 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val parsedExercises = parseExercisesJson(routine.exercisesJson)
             val activeExercises = parsedExercises.map { re ->
-                // Check past weights from logged sets
-                val logsFlow = repository.getSetLogsForExercise(re.exerciseId)
-                val pastLogs = logsFlow.firstOrNull() ?: emptyList()
-                val lastWeightInfo = if (pastLogs.isNotEmpty()) {
-                    val lastLog = pastLogs.first()
-                    "Last time: ${lastLog.weightKg}kg x ${lastLog.reps} reps"
-                } else {
-                    "First session for this exercise! Let's go!"
+                // Last session's sets drive the "previous" column and the overload suggestion.
+                val pastLogs = repository.getSetLogsForExercise(re.exerciseId).firstOrNull().orEmpty()
+                val lastSessionSets = pastLogs
+                    .filter { it.dateMillis == pastLogs.firstOrNull()?.dateMillis }
+                    .sortedBy { it.setIndex }
+                val suggestedWeight = FitnessCalculator.suggestNextWeight(
+                    lastSessionSets = lastSessionSets.map { LoggedSet(it.weightKg, it.reps) },
+                    targetReps = re.targetReps,
+                    routineWeightKg = re.targetWeightKg
+                )
+                val lastWorkingWeight = lastSessionSets.maxOfOrNull { it.weightKg } ?: 0.0
+                val coachMessage = when {
+                    lastSessionSets.isEmpty() -> "First session for this exercise! Let's go!"
+                    suggestedWeight > lastWorkingWeight ->
+                        "Hit every rep last time → go up to ${formatKg(suggestedWeight)} kg today"
+                    else -> "Repeat ${formatKg(suggestedWeight)} kg and beat last time's reps"
                 }
 
                 ActiveWorkoutExercise(
@@ -352,13 +362,15 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                     targetSets = re.targetSets,
                     targetReps = re.targetReps,
                     restSeconds = re.restSeconds,
-                    targetWeightKg = re.targetWeightKg,
-                    lastSessionMessage = lastWeightInfo,
+                    targetWeightKg = suggestedWeight,
+                    lastSessionMessage = coachMessage,
                     sets = List(re.targetSets) { i ->
+                        val previous = lastSessionSets.getOrNull(i)
                         ActiveWorkoutSet(
                             setIndex = i,
-                            targetWeightKg = re.targetWeightKg,
-                            targetReps = re.targetReps
+                            targetWeightKg = suggestedWeight,
+                            targetReps = re.targetReps,
+                            previousLabel = previous?.let { "${formatKg(it.weightKg)}×${it.reps}" } ?: "-"
                         )
                     }
                 )
@@ -866,7 +878,8 @@ data class ActiveSetSnapshot(
     val targetReps: Int,
     val actualWeightKg: String,
     val actualReps: String,
-    val isCompleted: Boolean
+    val isCompleted: Boolean,
+    val previousLabel: String = "-"
 )
 
 private fun ActiveWorkoutSession.toSnapshot() = ActiveWorkoutSnapshot(
@@ -890,7 +903,8 @@ private fun ActiveWorkoutSession.toSnapshot() = ActiveWorkoutSnapshot(
                     targetReps = set.targetReps,
                     actualWeightKg = set.actualWeightKg,
                     actualReps = set.actualReps,
-                    isCompleted = set.isCompleted
+                    isCompleted = set.isCompleted,
+                    previousLabel = set.previousLabel
                 )
             }
         )
@@ -918,9 +932,14 @@ private fun ActiveWorkoutSnapshot.toActiveWorkout() = ActiveWorkoutSession(
                     targetReps = set.targetReps,
                     initialActualWeightKg = set.actualWeightKg,
                     initialActualReps = set.actualReps,
-                    initialIsCompleted = set.isCompleted
+                    initialIsCompleted = set.isCompleted,
+                    previousLabel = set.previousLabel
                 )
             }
         )
     }
 )
+
+/** 60.0 -> "60", 62.5 -> "62.5" */
+fun formatKg(kg: Double): String =
+    if (kg % 1.0 == 0.0) kg.toInt().toString() else String.format(Locale.US, "%.1f", kg)

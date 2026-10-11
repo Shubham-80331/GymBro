@@ -859,7 +859,7 @@ fun ActiveExerciseCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = "SET", modifier = Modifier.weight(0.6f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(text = "TARGETS", modifier = Modifier.weight(1.8f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(text = "PREVIOUS", modifier = Modifier.weight(1.8f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(text = "ACTUAL KG", modifier = Modifier.weight(1.2f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(text = "REPS", modifier = Modifier.weight(1f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(text = "STATE", modifier = Modifier.weight(0.8f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -878,7 +878,7 @@ fun ActiveExerciseCard(
                     Text(text = "S${set.setIndex + 1}", modifier = Modifier.weight(0.6f), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
 
                     // Target details
-                    Text(text = "${set.targetWeightKg}kg x ${set.targetReps}", modifier = Modifier.weight(1.8f), color = TextSecondary, fontSize = 12.sp)
+                    Text(text = set.previousLabel, modifier = Modifier.weight(1.8f), color = TextSecondary, fontSize = 12.sp)
 
                     // Weight TextField Input - disabled after set is completed
                     OutlinedTextField(
@@ -897,7 +897,7 @@ fun ActiveExerciseCard(
                             unfocusedBorderColor = CardStroke,
                             disabledBorderColor = CardStroke.copy(alpha = 0.5f)
                         ),
-                        placeholder = { Text("-", color = TextSecondary, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                        placeholder = { Text(com.gymbro.fitness.ui.formatKg(set.targetWeightKg), color = TextSecondary, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
                     )
 
                     // Repetitions input - disabled after set is completed
@@ -917,7 +917,7 @@ fun ActiveExerciseCard(
                             unfocusedBorderColor = CardStroke,
                             disabledBorderColor = CardStroke.copy(alpha = 0.5f)
                         ),
-                        placeholder = { Text("-", color = TextSecondary, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                        placeholder = { Text(set.targetReps.toString(), color = TextSecondary, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
                     )
 
                     // Completed state checkbox - color indicates state

@@ -7,6 +7,8 @@ import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+data class LoggedSet(val weightKg: Double, val reps: Int)
+
 data class MacroTargets(
     val calories: Int,
     val proteinGrams: Int,
@@ -99,6 +101,19 @@ object FitnessCalculator {
             calendar.add(Calendar.DAY_OF_YEAR, -1)
         }
         return streak
+    }
+
+    /**
+     * Progressive overload: if every set last session hit the target reps, add a small increment;
+     * otherwise repeat the same weight. Falls back to the routine's weight with no usable history.
+     */
+    fun suggestNextWeight(lastSessionSets: List<LoggedSet>, targetReps: Int, routineWeightKg: Double): Double {
+        val workingWeight = lastSessionSets.maxOfOrNull { it.weightKg } ?: return routineWeightKg
+        if (workingWeight <= 0.0) return routineWeightKg
+        val hitAllReps = lastSessionSets.all { it.reps >= targetReps }
+        if (!hitAllReps) return workingWeight
+        val increment = if (workingWeight >= 20.0) 2.5 else 1.0
+        return workingWeight + increment
     }
 
     private const val STRENGTH_TRAINING_MET = 5.0

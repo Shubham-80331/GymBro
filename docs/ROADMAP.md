@@ -102,7 +102,7 @@ Goal: every number on screen is real and no user data is lost.
 | ID | Feature | Size |
 |---|---|---|
 | W-01 | kg/lb unit toggle (store kg, convert in the UI) | S |
-| W-02 | "Previous" column per set (last weight × reps), prefill from the last session | S |
+| W-02 | ☑ "Previous" column per set (last weight × reps), prefill from the last session | S |
 | W-03 | Set types: warm-up, working, drop, failure; optional RPE/RIR | M |
 | W-04 | Add, swap, or reorder exercises mid-workout; supersets | M |
 | W-05 | Plate calculator (bar weight setting, available plates) | S |
@@ -119,7 +119,7 @@ Goal: every number on screen is real and no user data is lost.
 ### 3C. Progression intelligence
 | ID | Feature | Size |
 |---|---|---|
-| G-01 | Automatic progressive overload suggestion ("hit 3×10 → try 62.5 kg") | M |
+| G-01 | ☑ Automatic progressive overload suggestion ("hit 3×10 → try 62.5 kg") | M |
 | G-02 | ◐ (best est. 1RM per lift on Progress done; trend charts next) Estimated 1RM trend charts per lift; PR history | M |
 | G-03 | Weekly sets per muscle group plus a body heat-map of under-trained muscles | M |
 | G-04 | Plateau detection → deload suggestion | S |
