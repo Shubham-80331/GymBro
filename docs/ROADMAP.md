@@ -24,7 +24,7 @@ Goal: a clean, buildable, testable project to build on.
 | F-07 | Add Navigation Compose (tabs plus detail screens, back stack, deep links) | M | ☐ |
 | F-08 | Add DataStore for settings (units, theme, reminders) | S | ☐ |
 | F-09 | Replace `SimpleDateFormat(Locale.getDefault())` with `java.time.LocalDate` keys (fixes locales that use non-Latin digits). Date keys now use `Locale.US`; full `java.time` move still to do | S | ◐ |
-| F-10 | Rewrite the README: real tech stack (Compose, Room), setup, `.env` keys, how to build | S | ☐ |
+| F-10 | Rewrite the README: real tech stack (Compose, Room), setup, `.env` keys, how to build | S | ☑ |
 
 **Done when:** CI is green, the schema is exported, and there are no `com.example` or AI Studio leftovers.
 
