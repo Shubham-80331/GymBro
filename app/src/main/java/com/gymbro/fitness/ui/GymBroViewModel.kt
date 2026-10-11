@@ -137,6 +137,9 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     /** Best set per exercise, ranked by estimated 1RM. */
     val exerciseBests: StateFlow<List<ExerciseBest>>
 
+    /** Most recently logged distinct foods, newest first, for one-tap re-logging. */
+    val recentFoods: StateFlow<List<FoodLog>>
+
     /** Completed sets per muscle group over the last 7 days. */
     val weeklySetsByMuscle: StateFlow<Map<String, Int>>
 
@@ -252,6 +255,10 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 }.sortedByDescending { it.estimatedOneRepMaxKg }
             }
             .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        recentFoods = repository.allFoodLogs
+            .map { logs -> logs.distinctBy { it.name.trim().lowercase() }.take(12) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         weeklySetsByMuscle = combine(repository.allSetLogs, repository.allExercises) { logs, exercises ->

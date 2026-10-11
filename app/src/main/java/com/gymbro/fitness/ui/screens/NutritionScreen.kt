@@ -72,6 +72,7 @@ fun NutritionScreen(
         foodFats = (food.fatPer100g * factor).roundToInt().toString()
     }
     val savedFoods by viewModel.allCustomFoods.collectAsState()
+    val recentFoods by viewModel.recentFoods.collectAsState()
 
     // Daily calculations
     val targetCal = profile?.targetCalories ?: 2200
@@ -478,6 +479,35 @@ fun NutritionScreen(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+
+                    if (recentFoods.isNotEmpty()) {
+                        Text(text = "RECENT", fontSize = 11.sp, color = TextSecondary)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            recentFoods.forEach { recent ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(DarkCard)
+                                        .clickable {
+                                            foodName = recent.name
+                                            foodProtein = recent.proteinGrams.toString()
+                                            foodCarbs = recent.carbsGrams.toString()
+                                            foodFats = recent.fatsGrams.toString()
+                                            selectedFood = null
+                                            saveAsFavourite = false
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text(text = recent.name, fontSize = 12.sp, color = TextPrimary, maxLines = 1)
+                                }
+                            }
+                        }
                     }
 
                     if (savedFoods.isNotEmpty()) {
