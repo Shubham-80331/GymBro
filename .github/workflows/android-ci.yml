@@ -29,6 +29,10 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDebugUnitTest
 
+      # Runs R8 on the release variant so broken keep rules fail CI, without needing the upload key.
+      - name: Release shrink (R8)
+        run: ./gradlew :app:minifyReleaseWithR8
+
       # Non-blocking until the existing lint backlog is cleaned up (roadmap F-04).
       - name: Lint
         run: ./gradlew lintDebug

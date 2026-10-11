@@ -12,10 +12,17 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Keep line numbers so Play Console / crash reports show readable stack traces.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Moshi: JSON models use generated adapters (@JsonClass(generateAdapter = true)), whose
+# consumer rules ship with Moshi. GeminiClient also registers KotlinJsonAdapterFactory,
+# which reads Kotlin metadata via reflection.
+-keep class kotlin.Metadata { *; }
+
+# Retrofit service interfaces are created through reflection; keep their generic signatures
+# so suspend functions and response types survive shrinking.
+-keepattributes Signature, InnerClasses, EnclosingMethod, *Annotation*
+-keep,allowobfuscation,allowshrinking interface com.gymbro.fitness.data.GeminiApiService
+-keep,allowobfuscation,allowshrinking interface com.gymbro.fitness.data.OpenFoodFactsApi

@@ -80,7 +80,7 @@ Goal: every number on screen is real and no user data is lost.
 |---|---|---|
 | P-01 | **Move the Gemini key off the device**: Firebase AI Logic with App Check, or a Cloud Function proxy; per-user rate limit | M |
 | P-02 | ☑ Friendly AI error and retry states; never show raw exception text | S |
-| P-03 | R8 on (`isMinifyEnabled = true`, `isShrinkResources = true`), keep rules for Moshi and Room; test the release build | S |
+| P-03 | ◐ (R8 + resource shrinking on, CI runs minifyReleaseWithR8; still needs an on-device release smoke test) R8 on (`isMinifyEnabled = true`, `isShrinkResources = true`), keep rules for Moshi and Room; test the release build | S |
 | P-04 | Upload keystore, Play App Signing, AAB build, `versionCode` from CI | S |
 | P-05 | ◐ Privacy policy (hosted), health and AI disclaimer at first launch and on the Coach screen (disclaimers in Coach header and Settings done; hosted policy still needed) | S |
 | P-06 | ☑ Settings → "Export my data" (JSON; CSV later) and "Delete all my data" | M |
