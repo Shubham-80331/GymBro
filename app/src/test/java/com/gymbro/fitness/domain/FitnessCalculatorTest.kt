@@ -125,6 +125,18 @@ class FitnessCalculatorTest {
         assertEquals(WeightUnit.LB, WeightUnit.fromStorage("LB"))
     }
 
+    @Test
+    fun `common foods match every search word and have consistent macros`() {
+        assertTrue(CommonFoods.search("roti").any { it.name.startsWith("Roti") })
+        assertTrue(CommonFoods.search("chicken curry").all { it.name.contains("Chicken") && it.name.contains("Curry") })
+        assertTrue(CommonFoods.search("   ").isEmpty())
+        CommonFoods.all.forEach { food ->
+            val fromMacros = food.proteinPer100g * 4 + food.carbsPer100g * 4 + food.fatPer100g * 9
+            // Label calories and 4/4/9 differ a little (fibre, rounding) but never wildly.
+            assertTrue("${food.name}: $fromMacros vs ${food.kcalPer100g}", kotlin.math.abs(fromMacros - food.kcalPer100g) <= 0.2 * food.kcalPer100g + 15)
+        }
+    }
+
     private fun noon(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 12)
         set(Calendar.MINUTE, 0)

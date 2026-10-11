@@ -136,7 +136,7 @@ Goal: every number on screen is real and no user data is lost.
 | N-01 | ◐ Food search (Open Food Facts plus USDA); serving sizes and quantity (Open Food Facts search + grams done; USDA later) | L |
 | N-02 | Barcode scanner (CameraX plus ML Kit) | M |
 | N-03 | ◐ (saved foods quick-pick done; recents/favourites next) Recent, favourite, and custom foods (custom foods are already in the DB but have no UI) | S |
-| N-04 | Indian and regional food database (dal, roti, paneer, poha…) | M |
+| N-04 | ◐ (45 built-in common foods incl. Indian staples, offline; expand further later) Indian and regional food database (dal, roti, paneer, poha…) | M |
 | N-05 | Copy a meal or day; saved meals and recipes | M |
 
 ### 3F. Health Connect & retention

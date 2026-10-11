@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.gymbro.fitness.data.*
+import com.gymbro.fitness.domain.CommonFoods
 import com.gymbro.fitness.domain.FitnessCalculator
 import com.gymbro.fitness.domain.LoggedSet
 import com.gymbro.fitness.domain.ProgramTemplate
@@ -749,16 +750,23 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         if (query.isBlank()) return
         foodSearchJob?.cancel()
         _foodSearchState.value = "Searching…"
+        // Built-in common foods show instantly (and offline); database results follow.
+        val local = CommonFoods.search(query)
+        _foodSearchResults.value = local
         foodSearchJob = viewModelScope.launch {
             try {
-                val results = withContext(Dispatchers.IO) { FoodSearchClient.search(query) }
+                val remote = withContext(Dispatchers.IO) { FoodSearchClient.search(query) }
+                val results = local + remote
                 _foodSearchResults.value = results
                 _foodSearchState.value = if (results.isEmpty()) "No foods found. Try another name." else null
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _foodSearchResults.value = emptyList()
-                _foodSearchState.value = "Couldn't reach the food database. Check your connection."
+                _foodSearchState.value = if (local.isEmpty()) {
+                    "Couldn't reach the food database. Check your connection."
+                } else {
+                    "Offline: showing common foods only."
+                }
             }
         }
     }
