@@ -207,7 +207,7 @@ fun CoachScreen(
                                     .background(FitGreen, RoundedCornerShape(4.dp))
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "LIVE", color = FitGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "AI", color = FitGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                         Text(
                             text = if (isChatLoading) "GymBro is thinking gears..." else "Ready to lift heavy together!",

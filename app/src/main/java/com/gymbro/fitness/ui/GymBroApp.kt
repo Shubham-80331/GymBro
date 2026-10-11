@@ -53,7 +53,7 @@ fun GymBroApp(
                 ) {
                     Column {
                         Text(
-                            text = "GYMBRO PRO",
+                            text = "GYMBRO",
                             style = MaterialTheme.typography.labelMedium,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -93,31 +93,14 @@ fun GymBroApp(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text("🔥", fontSize = 14.sp)
-                            val sessions by viewModel.allSessions.collectAsState()
-                            val streakValue = 12 + (sessions.size)
+                            val streak by viewModel.workoutStreak.collectAsState()
                             Text(
-                                text = "$streakValue",
+                                text = "$streak",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary
                             )
                         }
-                        // Profile avatar with a beautiful geometric gradient
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                        colors = listOf(GymVolt, ElectricBlue)
-                                    ),
-                                    shape = CircleShape
-                                )
-                                .border(
-                                    width = 2.dp,
-                                    color = Color(0x33FFFFFF),
-                                    shape = CircleShape
-                                )
-                        )
                     }
                 }
             },

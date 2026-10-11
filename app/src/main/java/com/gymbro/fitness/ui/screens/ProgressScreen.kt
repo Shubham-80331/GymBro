@@ -132,7 +132,7 @@ fun ProgressScreen(
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    text = String.format(Locale.US, "%.1f", profile?.weightKg ?: 82.4),
+                                    text = profile?.weightKg?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Black,
                                     color = TextPrimary
@@ -148,21 +148,23 @@ fun ProgressScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             // Dynamic calculated change
                             val loggedDiff = if (weightLogs.size >= 2) {
-                                val latest = weightLogs.first().weightKg
-                                val prev = weightLogs[1].weightKg
-                                latest - prev
+                                weightLogs[0].weightKg - weightLogs[1].weightKg
                             } else {
-                                -0.4
+                                null
                             }
-                            val changeText = if (loggedDiff < 0) {
-                                String.format(Locale.US, "▼ %.1fkg since prev", -loggedDiff)
-                            } else {
-                                String.format(Locale.US, "▲ %.1fkg since prev", loggedDiff)
+                            val changeText = when {
+                                loggedDiff == null -> "Log twice to see change"
+                                loggedDiff < 0 -> String.format(Locale.US, "▼ %.1fkg since prev", -loggedDiff)
+                                else -> String.format(Locale.US, "▲ %.1fkg since prev", loggedDiff)
                             }
                             Text(
                                 text = changeText,
                                 fontSize = 11.sp,
-                                color = if (loggedDiff < 0) FitGreen else ProteinOrange,
+                                color = when {
+                                    loggedDiff == null -> TextSecondary
+                                    loggedDiff < 0 -> FitGreen
+                                    else -> ProteinOrange
+                                },
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -185,8 +187,13 @@ fun ProgressScreen(
                                 letterSpacing = 0.5.sp
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            val highestVolume = sessions.maxOfOrNull { it.totalVolumeLoadKg } ?: 12400.0
-                            val prKiloText = if (highestVolume >= 1000) {
+                            val highestVolume = sessions.maxOfOrNull { it.totalVolumeLoadKg }
+                            // Sessions are ordered newest first, so the record is "new" when the latest session holds it.
+                            val latestIsRecord = sessions.size >= 2 && highestVolume != null &&
+                                sessions.first().totalVolumeLoadKg >= highestVolume
+                            val prKiloText = if (highestVolume == null) {
+                                "--"
+                            } else if (highestVolume >= 1000) {
                                 String.format(Locale.US, "%.1fk", highestVolume / 1000.0)
                             } else {
                                 String.format(Locale.US, "%.0f", highestVolume)
@@ -208,10 +215,14 @@ fun ProgressScreen(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "NEW RECORD! 🏆",
+                                text = when {
+                                    highestVolume == null -> "Finish a workout to set one"
+                                    latestIsRecord -> "NEW RECORD! 🏆"
+                                    else -> "Best single session"
+                                },
                                 fontSize = 10.sp,
-                                color = ProteinOrange,
-                                fontWeight = FontWeight.Black,
+                                color = if (latestIsRecord) ProteinOrange else TextSecondary,
+                                fontWeight = if (latestIsRecord) FontWeight.Black else FontWeight.SemiBold,
                                 letterSpacing = 0.5.sp
                             )
                         }
@@ -250,7 +261,10 @@ fun ProgressScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                        val todaysSteps = stepsLogs.filter { it.dateString == today }.sumOf { it.caloriesBurnt }
+                        // Each entry is the day's total, so the most recent entry for today wins.
+                        val todaysStepsLog = stepsLogs.filter { it.dateString == today }.maxByOrNull { it.id }
+                        val todaysStepCount = todaysStepsLog?.stepsCount ?: 0
+                        val todaysSteps = todaysStepsLog?.caloriesBurnt ?: 0
                         val todaysWorkout = sessions.filter { 
                             SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it.dateMillis)) == today 
                         }.sumOf { it.caloriesBurnt }
@@ -265,7 +279,8 @@ fun ProgressScreen(
                             // Breakdown
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("STEPS", fontSize = 10.sp, color = TextSecondary)
-                                Text("${todaysSteps} kcal", fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                Text("$todaysStepCount", fontSize = 16.sp, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                Text("${todaysSteps} kcal", fontSize = 10.sp, color = TextSecondary)
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("WORKOUT", fontSize = 10.sp, color = TextSecondary)
@@ -364,15 +379,35 @@ fun ProgressScreen(
                             Icon(imageVector = Icons.Default.BarChart, contentDescription = "Analytics", tint = GymVolt)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "CORRELATION INSIGHTS",
+                                text = "LAST 7 DAYS",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = TextPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
+                        val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+                        val weekSessions = sessions.filter { it.dateMillis >= weekAgo }
+                        val weekVolume = weekSessions.sumOf { it.totalVolumeLoadKg }
+                        val weekWeights = weightLogs.filter { it.dateMillis >= weekAgo }
+                        val weekWeightChange = if (weekWeights.size >= 2) {
+                            weekWeights.first().weightKg - weekWeights.last().weightKg
+                        } else {
+                            null
+                        }
+                        val summaryText = buildString {
+                            if (weekSessions.isEmpty()) {
+                                append("No workouts logged this week yet.")
+                            } else {
+                                append("${weekSessions.size} workout${if (weekSessions.size == 1) "" else "s"}, ")
+                                append(String.format(Locale.US, "%,.0f kg lifted.", weekVolume))
+                            }
+                            if (weekWeightChange != null) {
+                                append(String.format(Locale.US, " Weight %+.1f kg.", weekWeightChange))
+                            }
+                        }
                         Text(
-                            text = "Adhering to your dynamic caloric splits has a direct correlation with your physical transformation parameters. High workout volumes trigger hypertrophic stimulus.",
+                            text = summaryText,
                             color = TextSecondary,
                             fontSize = 13.sp,
                             lineHeight = 18.sp
@@ -394,7 +429,7 @@ fun ProgressScreen(
                                     Spacer(modifier = Modifier.height(4.dp))
                                     val totalVol = sessions.sumOf { it.totalVolumeLoadKg }
                                     Text(text = "${totalVol.toInt()} kg", fontSize = 18.sp, color = FitGreen, fontWeight = FontWeight.Black)
-                                    Text(text = "Accumulated", fontSize = 10.sp, color = TextSecondary)
+                                    Text(text = "All time", fontSize = 10.sp, color = TextSecondary)
                                 }
                             }
 
@@ -405,7 +440,7 @@ fun ProgressScreen(
                                     .padding(12.dp)
                             ) {
                                 Column {
-                                    Text(text = "TARGET ACCURACY", fontSize = 11.sp, color = TextSecondary)
+                                    Text(text = "GOAL", fontSize = 11.sp, color = TextSecondary)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     val goal = profile?.primaryGoal ?: "Maintain"
                                     Text(text = goal.uppercase(), fontSize = 18.sp, color = ProteinOrange, fontWeight = FontWeight.Black)
