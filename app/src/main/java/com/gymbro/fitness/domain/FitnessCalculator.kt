@@ -148,5 +148,24 @@ object FitnessCalculator {
     val STANDARD_PLATES_KG = listOf(25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25)
     private const val EPSILON = 1e-6
 
+    /**
+     * True when the last [window] sessions (newest first, each the session's best estimated 1RM)
+     * all came close to but failed to beat the best from before them, i.e. the lift has stalled.
+     */
+    fun isPlateau(sessionBestsNewestFirst: List<Double>, window: Int = 3): Boolean {
+        if (sessionBestsNewestFirst.size <= window) return false
+        val recent = sessionBestsNewestFirst.take(window)
+        val bestBefore = sessionBestsNewestFirst.drop(window).maxOrNull() ?: return false
+        // Sessions well below the old best are a deload or an off day, not a stall.
+        return bestBefore > 0.0 && recent.all { it <= bestBefore && it >= bestBefore * 0.95 }
+    }
+
+    /** A deload drops the working weight about 10%, rounded down to the given step. */
+    fun deloadWeight(workingWeightKg: Double, stepKg: Double = 2.5): Double {
+        if (workingWeightKg <= 0.0) return 0.0
+        val target = workingWeightKg * 0.9
+        return (Math.floor(target / stepKg) * stepKg).coerceAtLeast(stepKg)
+    }
+
     private const val STRENGTH_TRAINING_MET = 5.0
 }

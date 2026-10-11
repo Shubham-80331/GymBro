@@ -389,8 +389,20 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                     smallIncrementKg = unit.smallIncrementKg
                 )
                 val lastWorkingWeight = lastSessionSets.maxOfOrNull { it.weightKg } ?: 0.0
+                // Best estimated 1RM per past session, newest first, to spot a stalled lift.
+                val sessionBests = pastLogs.groupBy { it.dateMillis }
+                    .toSortedMap(compareByDescending { it })
+                    .values
+                    .map { sets -> sets.maxOf { FitnessCalculator.estimatedOneRepMax(it.weightKg, it.reps) } }
+                val stalled = FitnessCalculator.isPlateau(sessionBests)
+                val plannedWeight = if (stalled) {
+                    FitnessCalculator.deloadWeight(lastWorkingWeight, unit.largeIncrementKg)
+                } else {
+                    suggestedWeight
+                }
                 val coachMessage = when {
                     lastSessionSets.isEmpty() -> "First session for this exercise! Let's go!"
+                    stalled -> "Stalled 3 sessions → deload to ${unit.formatWithUnit(plannedWeight)} and build back up"
                     suggestedWeight > lastWorkingWeight ->
                         "Hit every rep last time → go up to ${unit.formatWithUnit(suggestedWeight)} today"
                     else -> "Repeat ${unit.formatWithUnit(suggestedWeight)} and beat last time's reps"
@@ -403,13 +415,13 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                     targetSets = re.targetSets,
                     targetReps = re.targetReps,
                     restSeconds = re.restSeconds,
-                    targetWeightKg = suggestedWeight,
+                    targetWeightKg = plannedWeight,
                     lastSessionMessage = coachMessage,
                     sets = List(re.targetSets) { i ->
                         val previous = lastSessionSets.getOrNull(i)
                         ActiveWorkoutSet(
                             setIndex = i,
-                            targetWeightKg = suggestedWeight,
+                            targetWeightKg = plannedWeight,
                             targetReps = re.targetReps,
                             previousWeightKg = previous?.weightKg,
                             previousReps = previous?.reps

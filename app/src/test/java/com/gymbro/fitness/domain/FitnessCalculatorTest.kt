@@ -137,6 +137,23 @@ class FitnessCalculatorTest {
         }
     }
 
+    @Test
+    fun `plateau needs three sessions without beating the earlier best`() {
+        assertTrue(FitnessCalculator.isPlateau(listOf(100.0, 99.0, 100.0, 100.0, 95.0)))
+        assertEquals(false, FitnessCalculator.isPlateau(listOf(101.0, 99.0, 100.0, 100.0)))
+        assertEquals(false, FitnessCalculator.isPlateau(listOf(100.0, 100.0, 100.0)))
+        // Just deloaded: the newest session is far below the old best, so don't deload again.
+        assertEquals(false, FitnessCalculator.isPlateau(listOf(90.0, 100.0, 100.0, 100.0, 100.0)))
+    }
+
+    @Test
+    fun `deload drops about ten percent rounded down to the plate step`() {
+        assertEquals(90.0, FitnessCalculator.deloadWeight(100.0), 0.001)
+        assertEquals(55.0, FitnessCalculator.deloadWeight(62.5), 0.001)
+        assertEquals(2.5, FitnessCalculator.deloadWeight(2.5), 0.001)
+        assertEquals(0.0, FitnessCalculator.deloadWeight(0.0), 0.001)
+    }
+
     private fun noon(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 12)
         set(Calendar.MINUTE, 0)
