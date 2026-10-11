@@ -92,6 +92,17 @@ fun SettingsDialog(
         title = { Text("Settings", color = GymVolt, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("PROFILE", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                OutlinedButton(
+                    onClick = {
+                        viewModel.editProfile()
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Edit profile & goals", color = TextPrimary)
+                }
+
                 Text("UNITS", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     WeightUnit.entries.forEach { option ->

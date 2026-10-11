@@ -112,6 +112,10 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     private val database: GymBroDatabase
     private val repository: GymBroRepository
     val userProfile: StateFlow<UserProfile?>
+
+    /** Profile plus whether it has been read yet, so returning users don't see onboarding flash. */
+    data class ProfileState(val loaded: Boolean, val profile: UserProfile?)
+    val profileState: StateFlow<ProfileState>
     val allRoutines: StateFlow<List<Routine>>
     val allSessions: StateFlow<List<WorkoutSession>>
     val allWeightLogs: StateFlow<List<WeightLog>>
@@ -207,6 +211,8 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
         )
+        profileState = repository.userProfile.map { ProfileState(loaded = true, profile = it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProfileState(loaded = false, profile = null))
 
         allRoutines = repository.allRoutines.stateIn(
             scope = viewModelScope,
@@ -351,6 +357,14 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 targetFatsGrams = macros.fatsGrams
             )
         )
+    }
+
+    /** Reopens onboarding (prefilled) so the user can change stats, goal and activity level. */
+    fun editProfile() {
+        viewModelScope.launch {
+            val profile = repository.getUserProfileOneShot() ?: return@launch
+            repository.saveUserProfile(profile.copy(onboardingCompleted = false))
+        }
     }
 
     fun updateDailyMacroTargets(protein: Int, carbs: Int, fats: Int) {

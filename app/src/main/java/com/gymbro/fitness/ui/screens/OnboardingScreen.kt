@@ -31,15 +31,16 @@ fun OnboardingScreen(
 ) {
     var step by remember { mutableStateOf(1) }
 
-    // Onboarding form state
-    var age by remember { mutableStateOf("25") }
-    var gender by remember { mutableStateOf("Male") }
-    var weight by remember { mutableStateOf("75.0") }
-    var height by remember { mutableStateOf("175.0") }
-    var activityLevel by remember { mutableStateOf("Moderately Active") }
-    var primaryGoal by remember { mutableStateOf("Bulk") }
-    var targetWeight by remember { mutableStateOf("80.0") }
-    var timeframeWeeks by remember { mutableStateOf("12") }
+    // Onboarding form state, prefilled from the saved profile when editing goals later.
+    val existing = remember { viewModel.userProfile.value }
+    var age by remember { mutableStateOf(existing?.age?.toString() ?: "25") }
+    var gender by remember { mutableStateOf(existing?.gender ?: "Male") }
+    var weight by remember { mutableStateOf(existing?.weightKg?.toString() ?: "75.0") }
+    var height by remember { mutableStateOf(existing?.heightCm?.toString() ?: "175.0") }
+    var activityLevel by remember { mutableStateOf(existing?.activityLevel ?: "Moderately Active") }
+    var primaryGoal by remember { mutableStateOf(existing?.primaryGoal ?: "Bulk") }
+    var targetWeight by remember { mutableStateOf(existing?.targetWeightKg?.toString() ?: "80.0") }
+    var timeframeWeeks by remember { mutableStateOf(existing?.timeframeWeeks?.toString() ?: "12") }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

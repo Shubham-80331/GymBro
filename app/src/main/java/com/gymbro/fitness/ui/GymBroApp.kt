@@ -31,6 +31,8 @@ fun GymBroApp(
     viewModel: GymBroViewModel,
     modifier: Modifier = Modifier
 ) {
+    // Keeps userProfile subscribed so onboarding can prefill from its current value when editing goals.
+    @Suppress("UNUSED_VARIABLE")
     val profile by viewModel.userProfile.collectAsState()
     var currentTab by remember { mutableStateOf(GymBroTab.COACH) }
     var showSettings by remember { mutableStateOf(false) }
@@ -39,7 +41,12 @@ fun GymBroApp(
         SettingsDialog(viewModel = viewModel, onDismiss = { showSettings = false })
     }
 
-    if (profile == null || !profile!!.onboardingCompleted) {
+    val profileState by viewModel.profileState.collectAsState()
+
+    if (!profileState.loaded) {
+        // Brief blank frame while the profile loads from the database.
+        Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+    } else if (profileState.profile?.onboardingCompleted != true) {
         // Multi-Step Onboarding Vitals Flow
         OnboardingScreen(viewModel = viewModel, modifier = modifier)
     } else {
