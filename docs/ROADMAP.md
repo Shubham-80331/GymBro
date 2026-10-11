@@ -5,7 +5,7 @@ Work top to bottom: each phase must be done before the next one starts, and tick
 
 - **App ID / namespace:** `com.gymbro.fitness` (permanent once uploaded to Play)
 - **Size:** S ≈ ≤1 day, M ≈ 2–4 days, L ≈ 1–2 weeks
-- **Status:** ☐ todo · ◐ in progress · ☑ done
+- **Status:** ☐ todo · ◐ in progress · ☑ done (Phase 1 rows show ☑ before the task when done)
 
 ---
 
@@ -18,12 +18,12 @@ Goal: a clean, buildable, testable project to build on.
 | F-01 | Change app ID to `com.gymbro.fitness`, move the `com.example` package, rename the project and theme | S | ☑ |
 | F-02 | Update the Compose BOM, lifecycle, activity, and OkHttp; remove unused deps (Firebase BOM, commented-out libs) | S | ☐ |
 | F-03 | Turn on Room `exportSchema`, commit `app/schemas/`, add migration tests (also covers the missing 1→2 path) | M | ☐ |
-| F-04 | Set up CI on GitHub Actions: `lint`, `testDebugUnitTest`, `assembleDebug` on every PR | S | ☐ |
+| F-04 | Set up CI on GitHub Actions: `lint`, `testDebugUnitTest`, `assembleDebug` on every PR (lint is non-blocking until the backlog is cleared) | S | ◐ |
 | F-05 | Add Hilt for dependency injection; the ViewModel currently builds its own repository and database | M | ☐ |
 | F-06 | Split the 800-line `GymBroViewModel` into Onboarding, Workout, Nutrition, Progress, and Coach ViewModels | M | ☐ |
 | F-07 | Add Navigation Compose (tabs plus detail screens, back stack, deep links) | M | ☐ |
 | F-08 | Add DataStore for settings (units, theme, reminders) | S | ☐ |
-| F-09 | Replace `SimpleDateFormat(Locale.getDefault())` with `java.time.LocalDate` keys (fixes locales that use non-Latin digits) | S | ☐ |
+| F-09 | Replace `SimpleDateFormat(Locale.getDefault())` with `java.time.LocalDate` keys (fixes locales that use non-Latin digits). Date keys now use `Locale.US`; full `java.time` move still to do | S | ◐ |
 | F-10 | Rewrite the README: real tech stack (Compose, Room), setup, `.env` keys, how to build | S | ☐ |
 
 **Done when:** CI is green, the schema is exported, and there are no `com.example` or AI Studio leftovers.
@@ -37,23 +37,23 @@ Goal: every number on screen is real and no user data is lost.
 ### 1A. Remove fake data
 | ID | Task | Size |
 |---|---|---|
-| T-01 | Streak badge: replace `12 + sessions.size` with the real `workoutStreak` (`GymBroApp.kt`) | S |
-| T-02 | Volume PR card: drop the `12400.0` fallback; show "NEW RECORD" only when the latest session is the max; add an empty state | S |
-| T-03 | Steps tile shows calories labelled as steps; show the step count and calories separately | S |
-| T-04 | Replace the canned "Correlation Insights" text with values computed from the user's data, or hide the card | S |
-| T-05 | Remove the "LIVE" and "GYMBRO PRO" labels and the empty avatar until those features exist | S |
+| T-01 | ☑ Streak badge: replace `12 + sessions.size` with the real `workoutStreak` (`GymBroApp.kt`) | S |
+| T-02 | ☑ Volume PR card: drop the `12400.0` fallback; show "NEW RECORD" only when the latest session is the max; add an empty state | S |
+| T-03 | ☑ Steps tile shows calories labelled as steps; show the step count and calories separately | S |
+| T-04 | ☑ Replace the canned "Correlation Insights" text with values computed from the user's data, or hide the card | S |
+| T-05 | ☑ Remove the "LIVE" and "GYMBRO PRO" labels and the empty avatar until those features exist | S |
 
 ### 1B. Data integrity bugs
 | ID | Task | Size |
 |---|---|---|
-| D-01 | `logMorningWeightAndMetrics` logs weight twice; separate "update profile" from "log weight" | S |
-| D-02 | Replace the hand-written routine JSON parser with Moshi, or better, a `routine_exercises` table (migration) | M |
-| D-03 | Give custom exercises a UUID ID so they can't REPLACE built-in ones; block duplicate names | S |
-| D-04 | Save the active workout to Room on every change and resume it after process death or app restart | M |
-| D-05 | PR detection: compare estimated 1RM (Epley), count a first lift as a baseline, persist `isPr`, include sets from the current session | M |
-| D-06 | Confirm before deleting a routine or log entry, with an undo snackbar | S |
-| D-07 | Handle the system back button during a workout ("Discard / Finish / Keep going") | S |
-| D-08 | Input validation everywhere: ranges for age, weight, height, reps, and macros; no silent defaults | S |
+| D-01 | ☑ `logMorningWeightAndMetrics` logs weight twice; separate "update profile" from "log weight" | S |
+| D-02 | ☑ Replace the hand-written routine JSON parser with Moshi, or better, a `routine_exercises` table (migration) | M |
+| D-03 | ☑ Give custom exercises a UUID ID so they can't REPLACE built-in ones; block duplicate names | S |
+| D-04 | ☑ Save the active workout to Room on every change and resume it after process death or app restart | M |
+| D-05 | ☑ PR detection: compare estimated 1RM (Epley), count a first lift as a baseline, persist `isPr`, include sets from the current session | M |
+| D-06 | ☑ Confirm before deleting a routine or log entry, with an undo snackbar | S |
+| D-07 | ☑ Handle the system back button during a workout ("Discard / Finish / Keep going") | S |
+| D-08 | ☑ Input validation everywhere: ranges for age, weight, height, reps, and macros; no silent defaults | S |
 | D-09 | Allow editing and deleting past workout sessions and their sets | M |
 
 ### 1C. Rest timer that works in the background
@@ -65,10 +65,10 @@ Goal: every number on screen is real and no user data is lost.
 ### 1D. Correct calculations
 | ID | Task | Size |
 |---|---|---|
-| C-01 | Protein in g/kg of body weight (1.6–2.2 depending on goal), fats ≥ 0.6 g/kg, carbs fill the rest | S |
-| C-02 | "Other" gender: average the male and female BMR formulas, or let the user choose a formula | S |
-| C-03 | MET-based workout calories (time × MET × body weight) instead of `volume*0.03` | S |
-| C-04 | Unit tests for BMR, TDEE, macros, streak, 1RM, and PR logic | M |
+| C-01 | ☑ Protein in g/kg of body weight (1.6–2.2 depending on goal), fats ≥ 0.6 g/kg, carbs fill the rest | S |
+| C-02 | ☑ "Other" gender: average the male and female BMR formulas, or let the user choose a formula | S |
+| C-03 | ☑ MET-based workout calories (time × MET × body weight) instead of `volume*0.03` | S |
+| C-04 | ☑ Unit tests for BMR, TDEE, macros, streak, 1RM, and PR logic | M |
 
 **Done when:** a fresh install shows only zeros and empty states, and a workout survives the app being killed mid-set.
 

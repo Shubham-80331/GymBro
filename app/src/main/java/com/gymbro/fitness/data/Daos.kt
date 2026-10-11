@@ -71,6 +71,14 @@ interface WorkoutSetLogDao {
     @Query("SELECT MAX(weightKg) FROM workout_set_logs WHERE exerciseId = :exerciseId")
     suspend fun getOneRepMaxForExercise(exerciseId: String): Double?
 
+    /** Best Epley estimated 1RM across all logged sets (matches FitnessCalculator.estimatedOneRepMax). */
+    @Query("""
+        SELECT MAX(CASE WHEN reps = 1 THEN weightKg ELSE weightKg * (1 + reps / 30.0) END)
+        FROM workout_set_logs
+        WHERE exerciseId = :exerciseId AND weightKg > 0 AND reps > 0
+    """)
+    suspend fun getBestEstimatedOneRepMax(exerciseId: String): Double?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSetLog(log: WorkoutSetLog)
 

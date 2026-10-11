@@ -9,8 +9,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.gymbro.fitness.data.*
+import com.gymbro.fitness.domain.FitnessCalculator
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -31,6 +36,10 @@ class ActiveWorkoutSet(
     var actualWeightKg by mutableStateOf(initialActualWeightKg)
     var actualReps by mutableStateOf(initialActualReps)
     var isCompleted by mutableStateOf(initialIsCompleted)
+
+    /** What gets logged: the typed value, or the target when the field was left blank. */
+    fun loggedWeightKg(): Double = actualWeightKg.toDoubleOrNull() ?: targetWeightKg
+    fun loggedReps(): Int = actualReps.toIntOrNull() ?: targetReps
 }
 
 data class ActiveWorkoutExercise(
@@ -53,6 +62,16 @@ data class ActiveWorkoutSession(
 )
 
 class GymBroViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val moshi = Moshi.Builder().build()
+    private val routineExercisesAdapter = moshi.adapter<List<RoutineExercise>>(
+        Types.newParameterizedType(List::class.java, RoutineExercise::class.java)
+    )
+
+    // Declared before init so they exist when init restores an in-progress workout.
+    private val activeWorkoutFile = File(application.filesDir, "active_workout.json")
+    private val activeWorkoutAdapter = moshi.adapter(ActiveWorkoutSnapshot::class.java)
+    private var saveActiveWorkoutJob: Job? = null
 
     private val repository: GymBroRepository
     val userProfile: StateFlow<UserProfile?>
@@ -172,10 +191,12 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = emptyList()
         )
 
+        restoreActiveWorkout()
+
         // Calculate current workout streak
         viewModelScope.launch {
             allSessions.collect { sessions ->
-                _workoutStreak.value = calculateStreak(sessions)
+                _workoutStreak.value = FitnessCalculator.workoutStreak(sessions.map { it.dateMillis })
             }
         }
     }
@@ -192,9 +213,9 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         timeframeWeeks: Int
     ) {
         viewModelScope.launch {
-            val bmr = calculateBMR(weightKg, heightCm, age, gender)
-            val tdee = calculateTDEE(bmr, activityLevel)
-            val (calories, protein, carbs, fats) = calculateDailyMacros(tdee, weightKg, primaryGoal)
+            val bmr = FitnessCalculator.bmr(weightKg, heightCm, age, gender)
+            val tdee = FitnessCalculator.tdee(bmr, activityLevel)
+            val macros = FitnessCalculator.macroTargets(tdee, weightKg, primaryGoal)
 
             val profile = UserProfile(
                 age = age,
@@ -207,10 +228,10 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 timeframeWeeks = timeframeWeeks,
                 bmr = bmr,
                 tdee = tdee,
-                targetCalories = calories,
-                targetProteinGrams = protein,
-                targetCarbsGrams = carbs,
-                targetFatsGrams = fats,
+                targetCalories = macros.calories,
+                targetProteinGrams = macros.proteinGrams,
+                targetCarbsGrams = macros.carbsGrams,
+                targetFatsGrams = macros.fatsGrams,
                 onboardingCompleted = true
             )
             repository.saveUserProfile(profile)
@@ -219,27 +240,28 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateWeight(newWeightKg: Double) {
         viewModelScope.launch {
-            val profile = repository.getUserProfileOneShot()
-            if (profile != null) {
-                val bmr = calculateBMR(newWeightKg, profile.heightCm, profile.age, profile.gender)
-                val tdee = calculateTDEE(bmr, profile.activityLevel)
-                val (calories, protein, carbs, fats) = calculateDailyMacros(tdee, newWeightKg, profile.primaryGoal)
-
-                val updatedProfile = profile.copy(
-                    weightKg = newWeightKg,
-                    bmr = bmr,
-                    tdee = tdee,
-                    targetCalories = calories,
-                    targetProteinGrams = protein,
-                    targetCarbsGrams = carbs,
-                    targetFatsGrams = fats
-                )
-                repository.saveUserProfile(updatedProfile)
-                
-                // Add to weight history log
-                repository.logWeight(WeightLog(dateMillis = System.currentTimeMillis(), weightKg = newWeightKg))
-            }
+            repository.logWeight(WeightLog(dateMillis = System.currentTimeMillis(), weightKg = newWeightKg))
+            updateProfileWeight(newWeightKg)
         }
+    }
+
+    /** Recalculates targets for a new body weight without adding a weight log entry. */
+    private suspend fun updateProfileWeight(newWeightKg: Double) {
+        val profile = repository.getUserProfileOneShot() ?: return
+        val bmr = FitnessCalculator.bmr(newWeightKg, profile.heightCm, profile.age, profile.gender)
+        val tdee = FitnessCalculator.tdee(bmr, profile.activityLevel)
+        val macros = FitnessCalculator.macroTargets(tdee, newWeightKg, profile.primaryGoal)
+        repository.saveUserProfile(
+            profile.copy(
+                weightKg = newWeightKg,
+                bmr = bmr,
+                tdee = tdee,
+                targetCalories = macros.calories,
+                targetProteinGrams = macros.proteinGrams,
+                targetCarbsGrams = macros.carbsGrams,
+                targetFatsGrams = macros.fatsGrams
+            )
+        )
     }
 
     fun updateDailyMacroTargets(protein: Int, carbs: Int, fats: Int) {
@@ -257,51 +279,6 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 repository.saveUserProfile(updatedProfile)
             }
         }
-    }
-
-    private fun calculateBMR(weight: Double, height: Double, age: Int, gender: String): Double {
-        return if (gender.lowercase() == "male") {
-            10.0 * weight + 6.25 * height - 5.0 * age + 5.0
-        } else {
-            10.0 * weight + 6.25 * height - 5.0 * age - 161.0
-        }
-    }
-
-    private fun calculateTDEE(bmr: Double, activityLevel: String): Double {
-        val multiplier = when (activityLevel) {
-            "Sedentary" -> 1.2
-            "Lightly Active" -> 1.375
-            "Moderately Active" -> 1.55
-            "Very Active" -> 1.725
-            "Highly Active" -> 1.9
-            else -> 1.2
-        }
-        return bmr * multiplier
-    }
-
-    private fun calculateDailyMacros(tdee: Double, weight: Double, goal: String): Quadruple<Int, Int, Int, Int> {
-        val calories = when (goal) {
-            "Cut" -> (tdee - 500).coerceAtLeast(1200.0).toInt()
-            "Maintain" -> tdee.toInt()
-            "Bulk" -> (tdee + 350).toInt()
-            "Recomp" -> (tdee - 100).toInt()
-            else -> tdee.toInt()
-        }
-
-        // Calorie splits based on goal ratios
-        val (pRatio, cRatio, fRatio) = when (goal) {
-            "Cut" -> Triple(0.35, 0.40, 0.25)
-            "Maintain" -> Triple(0.25, 0.45, 0.30)
-            "Bulk" -> Triple(0.25, 0.50, 0.25)
-            "Recomp" -> Triple(0.30, 0.40, 0.30)
-            else -> Triple(0.25, 0.45, 0.30)
-        }
-
-        val protein = ((calories * pRatio) / 4.0).toInt()
-        val carbs = ((calories * cRatio) / 4.0).toInt()
-        val fats = ((calories * fRatio) / 9.0).toInt()
-
-        return Quadruple(calories, protein, carbs, fats)
     }
 
     // Workout Tracker
@@ -343,6 +320,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 routineName = routine.name,
                 exercises = activeExercises
             )
+            saveActiveWorkout()
         }
     }
 
@@ -357,12 +335,15 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         if (set.isCompleted) {
             startRestTimer(exercise.restSeconds)
 
-            // Let's check for PR in completed sets!
-            val actualWeight = set.actualWeightKg.toDoubleOrNull() ?: set.targetWeightKg
-            val actualReps = set.actualReps.toIntOrNull() ?: set.targetReps
+            val setOneRepMax = FitnessCalculator.estimatedOneRepMax(set.loggedWeightKg(), set.loggedReps())
+            // Earlier sets in this workout count too, so only a set that beats them is a new PR.
+            val bestThisSession = exercise.sets
+                .filter { it !== set && it.isCompleted }
+                .maxOfOrNull { FitnessCalculator.estimatedOneRepMax(it.loggedWeightKg(), it.loggedReps()) } ?: 0.0
             viewModelScope.launch {
-                val bestPastMax = repository.getOneRepMaxForExercise(exercise.exerciseId) ?: 0.0
-                if (actualWeight > bestPastMax && bestPastMax > 0.0) {
+                val bestHistoric = repository.getBestEstimatedOneRepMax(exercise.exerciseId) ?: 0.0
+                // With no history the first lift is a baseline, not a record.
+                if (bestHistoric > 0.0 && setOneRepMax > maxOf(bestHistoric, bestThisSession)) {
                     _isPrCelebration.value = exercise.name
                     delay(3000)
                     _isPrCelebration.value = null
@@ -374,6 +355,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
 
         // Trigger Compose recomposure
         _activeWorkout.value = current.copy()
+        saveActiveWorkout()
     }
 
     fun finishWorkout() {
@@ -385,31 +367,34 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             val now = System.currentTimeMillis()
 
             current.exercises.forEach { ex ->
-                ex.sets.forEach { set ->
-                    if (set.isCompleted) {
-                        val weight = set.actualWeightKg.toDoubleOrNull() ?: set.targetWeightKg
-                        val reps = set.actualReps.toIntOrNull() ?: set.targetReps
-                        totalVolume += weight * reps
-                        completedCount++
+                var bestSoFar = repository.getBestEstimatedOneRepMax(ex.exerciseId) ?: 0.0
+                val hasHistory = bestSoFar > 0.0
+                ex.sets.filter { it.isCompleted }.forEach { set ->
+                    val weight = set.loggedWeightKg()
+                    val reps = set.loggedReps()
+                    totalVolume += weight * reps
+                    completedCount++
 
-                        // Save set to log list in Room
-                        repository.insertSetLog(
-                            WorkoutSetLog(
-                                exerciseId = ex.exerciseId,
-                                exerciseName = ex.name,
-                                dateMillis = now,
-                                weightKg = weight,
-                                reps = reps,
-                                setIndex = set.setIndex
-                            )
+                    val oneRepMax = FitnessCalculator.estimatedOneRepMax(weight, reps)
+                    val isPr = hasHistory && oneRepMax > bestSoFar
+                    bestSoFar = maxOf(bestSoFar, oneRepMax)
+
+                    repository.insertSetLog(
+                        WorkoutSetLog(
+                            exerciseId = ex.exerciseId,
+                            exerciseName = ex.name,
+                            dateMillis = now,
+                            weightKg = weight,
+                            reps = reps,
+                            setIndex = set.setIndex,
+                            isPr = isPr
                         )
-                    }
+                    )
                 }
             }
 
-            val elapsedTimeSeconds = ((System.currentTimeMillis() - current.startTimeMillis) / 1000).toInt()
-            val elapsedMinutes = (elapsedTimeSeconds / 60).coerceAtLeast(1)
-            val calories = (totalVolume * 0.03 + elapsedMinutes * 5).toInt()
+            val elapsedTimeSeconds = ((now - current.startTimeMillis) / 1000).toInt()
+            val bodyWeightKg = repository.getUserProfileOneShot()?.weightKg ?: DEFAULT_BODY_WEIGHT_KG
 
             val sessionLog = WorkoutSession(
                 routineName = current.routineName,
@@ -417,11 +402,12 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 activeTimeSeconds = elapsedTimeSeconds,
                 totalVolumeLoadKg = totalVolume,
                 completedSetsCount = completedCount,
-                caloriesBurnt = calories
+                caloriesBurnt = FitnessCalculator.workoutCalories(elapsedTimeSeconds, bodyWeightKg)
             )
 
             repository.logSession(sessionLog)
             _activeWorkout.value = null
+            clearSavedActiveWorkout()
             stopRestTimer()
         }
     }
@@ -430,20 +416,26 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         val current = _activeWorkout.value ?: return
         val set = current.exercises.getOrNull(exerciseIndex)?.sets?.getOrNull(setIndex) ?: return
         set.actualWeightKg = weight
+        saveActiveWorkout()
     }
 
     fun updateSetReps(exerciseIndex: Int, setIndex: Int, reps: String) {
         val current = _activeWorkout.value ?: return
         val set = current.exercises.getOrNull(exerciseIndex)?.sets?.getOrNull(setIndex) ?: return
         set.actualReps = reps
+        saveActiveWorkout()
     }
 
     fun addCustomExercise(name: String, muscleGroup: String, equipment: String) {
+        val trimmedName = name.trim()
+        if (trimmedName.isEmpty()) return
         viewModelScope.launch {
-            val id = name.uppercase().replace(" ", "_")
+            val existing = repository.searchExercises(trimmedName)
+            if (existing.any { it.name.equals(trimmedName, ignoreCase = true) }) return@launch
             val exercise = Exercise(
-                id = id,
-                name = name,
+                // Random id so a custom exercise can never replace a built-in one.
+                id = "CUSTOM_${UUID.randomUUID()}",
+                name = trimmedName,
                 muscleGroup = muscleGroup,
                 equipment = equipment,
                 isCustom = true
@@ -454,6 +446,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
 
     fun cancelWorkout() {
         _activeWorkout.value = null
+        clearSavedActiveWorkout()
         stopRestTimer()
     }
 
@@ -472,7 +465,6 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateRoutineExercises(routineId: Int, name: String, description: String, exercises: List<RoutineExercise>) {
         viewModelScope.launch {
-            val db = GymBroDatabase.getDatabase(getApplication(), viewModelScope)
             val json = serializeRoutineExercises(exercises)
             val routine = Routine(
                 id = routineId,
@@ -490,40 +482,10 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // Helper functions to parse from/to json manually for rock-solid stability
     fun parseExercisesJson(json: String): List<RoutineExercise> {
-        if (json.isEmpty() || json == "[]") return emptyList()
+        if (json.isBlank()) return emptyList()
         return try {
-            val list = mutableListOf<RoutineExercise>()
-            val cleaned = json.trim().removePrefix("[").removeSuffix("]")
-            if (cleaned.isEmpty()) return emptyList()
-            val items = cleaned.split("},")
-            for (item in items) {
-                var doc = item.trim()
-                if (!doc.endsWith("}")) {
-                    doc = "$doc}"
-                }
-                val exerciseId = getJsonStringValue(doc, "exerciseId")
-                val name = getJsonStringValue(doc, "name")
-                val muscleGroup = getJsonStringValue(doc, "muscleGroup")
-                val targetSets = getJsonIntValue(doc, "targetSets", 3)
-                val targetReps = getJsonIntValue(doc, "targetReps", 10)
-                val restSeconds = getJsonIntValue(doc, "restSeconds", 90)
-                val targetWeight = getJsonDoubleValue(doc, "targetWeightKg", 0.0)
-
-                list.add(
-                    RoutineExercise(
-                        exerciseId = exerciseId,
-                        name = name,
-                        muscleGroup = muscleGroup,
-                        targetSets = targetSets,
-                        targetReps = targetReps,
-                        restSeconds = restSeconds,
-                        targetWeightKg = targetWeight
-                    )
-                )
-            }
-            list
+            routineExercisesAdapter.fromJson(json).orEmpty()
         } catch (e: Exception) {
             emptyList()
         }
@@ -543,41 +505,35 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun serializeRoutineExercises(exercises: List<RoutineExercise>): String {
-        val sb = StringBuilder()
-        sb.append("[")
-        exercises.forEachIndexed { i, re ->
-            sb.append("{")
-            sb.append("\"exerciseId\":\"${re.exerciseId}\",")
-            sb.append("\"name\":\"${re.name}\",")
-            sb.append("\"muscleGroup\":\"${re.muscleGroup}\",")
-            sb.append("\"targetSets\":${re.targetSets},")
-            sb.append("\"targetReps\":${re.targetReps},")
-            sb.append("\"restSeconds\":${re.restSeconds},")
-            sb.append("\"targetWeightKg\":${re.targetWeightKg}")
-            sb.append("}")
-            if (i < exercises.size - 1) sb.append(",")
+    private fun serializeRoutineExercises(exercises: List<RoutineExercise>): String =
+        routineExercisesAdapter.toJson(exercises)
+
+    // Active workout persistence: survives the process being killed mid-workout.
+    private fun saveActiveWorkout() {
+        val snapshot = _activeWorkout.value?.toSnapshot() ?: return
+        saveActiveWorkoutJob?.cancel()
+        saveActiveWorkoutJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(300) // debounce keystrokes in the weight/reps fields
+            runCatching { activeWorkoutFile.writeText(activeWorkoutAdapter.toJson(snapshot)) }
         }
-        sb.append("]")
-        return sb.toString()
     }
 
-    private fun getJsonStringValue(json: String, key: String): String {
-        val pattern = "\"$key\"\\s*:\\s*\"([^\"]*)\"".toRegex()
-        val match = pattern.find(json)
-        return match?.groupValues?.get(1) ?: ""
+    private fun clearSavedActiveWorkout() {
+        saveActiveWorkoutJob?.cancel()
+        viewModelScope.launch(Dispatchers.IO) { activeWorkoutFile.delete() }
     }
 
-    private fun getJsonIntValue(json: String, key: String, defaultValue: Int): Int {
-        val pattern = "\"$key\"\\s*:\\s*([0-9.]+)".toRegex()
-        val match = pattern.find(json)
-        return match?.groupValues?.get(1)?.toDoubleOrNull()?.toInt() ?: defaultValue
-    }
-
-    private fun getJsonDoubleValue(json: String, key: String, defaultValue: Double): Double {
-        val pattern = "\"$key\"\\s*:\\s*([0-9.]+)".toRegex()
-        val match = pattern.find(json)
-        return match?.groupValues?.get(1)?.toDoubleOrNull() ?: defaultValue
+    private fun restoreActiveWorkout() {
+        viewModelScope.launch {
+            val snapshot = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (activeWorkoutFile.exists()) activeWorkoutAdapter.fromJson(activeWorkoutFile.readText()) else null
+                }.getOrNull()
+            }
+            if (snapshot != null && _activeWorkout.value == null) {
+                _activeWorkout.value = snapshot.toActiveWorkout()
+            }
+        }
     }
 
     // Rest Timer Core
@@ -608,7 +564,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun changeActiveDateOffset(days: Int) {
-        val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         try {
             val date = format.parse(_selectedDate.value) ?: Date()
             val calendar = Calendar.getInstance()
@@ -688,12 +644,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 note = note
             )
             repository.logWeight(log)
-
-            // Auto update user's profile weight too!
-            val profile = repository.getUserProfileOneShot()
-            if (profile != null) {
-                updateWeight(weight)
-            }
+            updateProfileWeight(weight)
         }
     }
 
@@ -733,55 +684,12 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // Helper functions
-    private fun calculateStreak(sessions: List<WorkoutSession>): Int {
-        if (sessions.isEmpty()) return 0
-        val sorted = sessions.map { it.dateMillis }.sortedDescending()
-        val format = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-
-        var streak = 0
-        val todayStr = format.format(Date())
-        val calendar = Calendar.getInstance()
-
-        // Get unique days completed list
-        val uniqueDays = sorted.map { format.format(Date(it)) }.distinct()
-        if (uniqueDays.isEmpty()) return 0
-
-        // Check if there is a session today or yesterday to continue streak
-        var checkDate = Date()
-        var checkStr = format.format(checkDate)
-
-        if (uniqueDays[0] != todayStr) {
-            // Check yesterday
-            calendar.time = checkDate
-            calendar.add(Calendar.DAY_OF_YEAR, -1)
-            val yesterdayStr = format.format(calendar.time)
-            if (uniqueDays[0] == yesterdayStr) {
-                checkDate = calendar.time
-                checkStr = yesterdayStr
-            } else {
-                return 0 // Streak broken
-            }
-        }
-
-        for (day in uniqueDays) {
-            if (day == checkStr) {
-                streak++
-                // Move backwards one day to check
-                calendar.time = checkDate
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                checkDate = calendar.time
-                checkStr = format.format(checkDate)
-            } else {
-                break
-            }
-        }
-
-        return streak
+    private companion object {
+        const val DEFAULT_BODY_WEIGHT_KG = 75.0
     }
 
     private fun getCurrentDateString(): String {
-        val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         return format.format(Date())
     }
 }
@@ -796,4 +704,89 @@ class GymBroViewModelFactory(private val application: Application) : ViewModelPr
     }
 }
 
-data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+@JsonClass(generateAdapter = true)
+data class ActiveWorkoutSnapshot(
+    val routineId: Int,
+    val routineName: String,
+    val startTimeMillis: Long,
+    val exercises: List<ActiveExerciseSnapshot>
+)
+
+@JsonClass(generateAdapter = true)
+data class ActiveExerciseSnapshot(
+    val exerciseId: String,
+    val name: String,
+    val muscleGroup: String,
+    val targetSets: Int,
+    val targetReps: Int,
+    val restSeconds: Int,
+    val targetWeightKg: Double,
+    val lastSessionMessage: String,
+    val sets: List<ActiveSetSnapshot>
+)
+
+@JsonClass(generateAdapter = true)
+data class ActiveSetSnapshot(
+    val setIndex: Int,
+    val targetWeightKg: Double,
+    val targetReps: Int,
+    val actualWeightKg: String,
+    val actualReps: String,
+    val isCompleted: Boolean
+)
+
+private fun ActiveWorkoutSession.toSnapshot() = ActiveWorkoutSnapshot(
+    routineId = routineId,
+    routineName = routineName,
+    startTimeMillis = startTimeMillis,
+    exercises = exercises.map { ex ->
+        ActiveExerciseSnapshot(
+            exerciseId = ex.exerciseId,
+            name = ex.name,
+            muscleGroup = ex.muscleGroup,
+            targetSets = ex.targetSets,
+            targetReps = ex.targetReps,
+            restSeconds = ex.restSeconds,
+            targetWeightKg = ex.targetWeightKg,
+            lastSessionMessage = ex.lastSessionMessage,
+            sets = ex.sets.map { set ->
+                ActiveSetSnapshot(
+                    setIndex = set.setIndex,
+                    targetWeightKg = set.targetWeightKg,
+                    targetReps = set.targetReps,
+                    actualWeightKg = set.actualWeightKg,
+                    actualReps = set.actualReps,
+                    isCompleted = set.isCompleted
+                )
+            }
+        )
+    }
+)
+
+private fun ActiveWorkoutSnapshot.toActiveWorkout() = ActiveWorkoutSession(
+    routineId = routineId,
+    routineName = routineName,
+    startTimeMillis = startTimeMillis,
+    exercises = exercises.map { ex ->
+        ActiveWorkoutExercise(
+            exerciseId = ex.exerciseId,
+            name = ex.name,
+            muscleGroup = ex.muscleGroup,
+            targetSets = ex.targetSets,
+            targetReps = ex.targetReps,
+            restSeconds = ex.restSeconds,
+            targetWeightKg = ex.targetWeightKg,
+            lastSessionMessage = ex.lastSessionMessage,
+            sets = ex.sets.map { set ->
+                ActiveWorkoutSet(
+                    setIndex = set.setIndex,
+                    targetWeightKg = set.targetWeightKg,
+                    targetReps = set.targetReps,
+                    initialActualWeightKg = set.actualWeightKg,
+                    initialActualReps = set.actualReps,
+                    initialIsCompleted = set.isCompleted
+                )
+            }
+        )
+    }
+)

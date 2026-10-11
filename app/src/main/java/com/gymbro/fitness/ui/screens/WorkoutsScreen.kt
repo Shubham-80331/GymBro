@@ -1,5 +1,6 @@
 package com.gymbro.fitness.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -57,6 +58,8 @@ fun WorkoutsScreen(
     var customExName by remember { mutableStateOf("") }
     var customExMuscle by remember { mutableStateOf("Chest") }
     var customExEquipment by remember { mutableStateOf("Barbell") }
+
+    var routinePendingDelete by remember { mutableStateOf<Routine?>(null) }
 
     AnimatedContent(
         targetState = activeSession != null,
@@ -202,13 +205,35 @@ fun WorkoutsScreen(
                                     selectedExercisesForRoutine = viewModel.parseExercisesJson(routine.exercisesJson)
                                     showCreateRoutineDialog = true
                                 },
-                                onDeleteClick = { viewModel.deleteRoutine(routine.id) }
+                                onDeleteClick = { routinePendingDelete = routine }
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    routinePendingDelete?.let { routine ->
+        AlertDialog(
+            onDismissRequest = { routinePendingDelete = null },
+            containerColor = DarkSurface,
+            title = { Text("Delete \"${routine.name}\"?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("This removes the routine. Workouts you already logged are kept.", color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteRoutine(routine.id)
+                    routinePendingDelete = null
+                }) {
+                    Text("DELETE", color = ErrorRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { routinePendingDelete = null }) {
+                    Text("CANCEL", color = TextSecondary)
+                }
+            }
+        )
     }
 
     // Create / Edit custom routine split
@@ -564,6 +589,39 @@ fun ActiveWorkoutPanel(
     val totalSeconds by viewModel.restTimerTotalSeconds.collectAsState()
     val timerActive by viewModel.restTimerActive.collectAsState()
 
+    var showLeaveDialog by remember { mutableStateOf(false) }
+    BackHandler { showLeaveDialog = true }
+
+    if (showLeaveDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveDialog = false },
+            containerColor = DarkSurface,
+            title = { Text("Leave this workout?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("Save what you've completed, or discard the whole session.", color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLeaveDialog = false
+                    viewModel.finishWorkout()
+                }) {
+                    Text("FINISH & SAVE", color = GymVolt, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showLeaveDialog = false
+                        viewModel.cancelWorkout()
+                    }) {
+                        Text("DISCARD", color = ErrorRed)
+                    }
+                    TextButton(onClick = { showLeaveDialog = false }) {
+                        Text("KEEP GOING", color = TextSecondary)
+                    }
+                }
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -591,7 +649,7 @@ fun ActiveWorkoutPanel(
                             Column {
                                 Text(text = "REST COUNTER", fontSize = 10.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = "$secondsLeft SEC SECONDS LEFT",
+                                    text = "$secondsLeft s left",
                                     color = GymVolt,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Black
@@ -615,7 +673,7 @@ fun ActiveWorkoutPanel(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { viewModel.cancelWorkout() },
+                        onClick = { showLeaveDialog = true },
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp),
@@ -633,7 +691,7 @@ fun ActiveWorkoutPanel(
                             .testTag("finish_workout_button"),
                         colors = ButtonDefaults.buttonColors(containerColor = GymVolt)
                     ) {
-                        Text(text = "FINISH & SAVE MATRIX", color = Color.Black, fontWeight = FontWeight.Black)
+                        Text(text = "FINISH & SAVE", color = Color.Black, fontWeight = FontWeight.Black)
                     }
                 }
             }

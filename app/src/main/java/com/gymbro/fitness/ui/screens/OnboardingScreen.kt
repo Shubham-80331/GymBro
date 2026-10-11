@@ -98,11 +98,18 @@ fun OnboardingScreen(
                         timeframeWeeks = timeframeWeeks, onTimeframeChange = { timeframeWeeks = it },
                         onBack = { step = 1 },
                         onComplete = {
-                            val finalAge = age.toIntOrNull() ?: 25
-                            val finalWeight = weight.toDoubleOrNull() ?: 75.0
-                            val finalHeight = height.toDoubleOrNull() ?: 175.0
-                            val finalTargetWeight = targetWeight.toDoubleOrNull() ?: finalWeight
-                            val finalWeeks = timeframeWeeks.toIntOrNull() ?: 12
+                            // Both steps only enable their buttons once these parse and are in range.
+                            val finalAge = age.trim().toIntOrNull()
+                            val finalWeight = weight.trim().toDoubleOrNull()
+                            val finalHeight = height.trim().toDoubleOrNull()
+                            val finalTargetWeight = targetWeight.trim().toDoubleOrNull()
+                            val finalWeeks = timeframeWeeks.trim().toIntOrNull()
+                            if (finalAge == null || finalWeight == null || finalHeight == null ||
+                                finalTargetWeight == null || finalWeeks == null
+                            ) {
+                                step = 1
+                                return@StepGoals
+                            }
 
                             viewModel.completeOnboarding(
                                 age = finalAge,
@@ -130,6 +137,9 @@ fun StepVitals(
     weight: String, onWeightChange: (String) -> Unit,
     onNext: () -> Unit
 ) {
+    val ageValid = isValidAge(age)
+    val heightValid = isValidHeight(height)
+    val weightValid = isValidBodyWeight(weight)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -194,6 +204,8 @@ fun StepVitals(
                 value = age,
                 onValueChange = onAgeChange,
                 label = { Text("AGE (Years)") },
+                isError = !ageValid,
+                supportingText = if (!ageValid) {{ Text("Enter an age from 13 to 100") }} else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -213,6 +225,8 @@ fun StepVitals(
                     value = height,
                     onValueChange = onHeightChange,
                     label = { Text("HEIGHT (cm)") },
+                    isError = !heightValid,
+                    supportingText = if (!heightValid) {{ Text("100–250 cm") }} else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -225,6 +239,8 @@ fun StepVitals(
                     value = weight,
                     onValueChange = onWeightChange,
                     label = { Text("WEIGHT (kg)") },
+                    isError = !weightValid,
+                    supportingText = if (!weightValid) {{ Text("30–300 kg") }} else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -238,6 +254,7 @@ fun StepVitals(
 
             Button(
                 onClick = onNext,
+                enabled = ageValid && heightValid && weightValid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
@@ -271,6 +288,8 @@ fun StepGoals(
     onBack: () -> Unit,
     onComplete: () -> Unit
 ) {
+    val targetWeightValid = isValidBodyWeight(targetWeight)
+    val timeframeValid = isValidTimeframe(timeframeWeeks)
     val activityLevels = listOf("Sedentary", "Lightly Active", "Moderately Active", "Very Active", "Highly Active")
     val goals = listOf("Cut", "Maintain", "Bulk", "Recomp")
 
@@ -353,6 +372,8 @@ fun StepGoals(
                     value = targetWeight,
                     onValueChange = onTargetWeightChange,
                     label = { Text("TARGET WEIGHT (kg)") },
+                    isError = !targetWeightValid,
+                    supportingText = if (!targetWeightValid) {{ Text("30–300 kg") }} else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -365,6 +386,8 @@ fun StepGoals(
                     value = timeframeWeeks,
                     onValueChange = onTimeframeChange,
                     label = { Text("TIMEFRAME (Wks)") },
+                    isError = !timeframeValid,
+                    supportingText = if (!timeframeValid) {{ Text("1–104 weeks") }} else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -438,6 +461,7 @@ fun StepGoals(
 
                 Button(
                     onClick = onComplete,
+                    enabled = targetWeightValid && timeframeValid,
                     modifier = Modifier
                         .weight(1.8f)
                         .height(56.dp)
@@ -462,3 +486,8 @@ fun StepGoals(
         }
     }
 }
+
+private fun isValidAge(value: String) = value.trim().toIntOrNull()?.let { it in 13..100 } == true
+private fun isValidHeight(value: String) = value.trim().toDoubleOrNull()?.let { it in 100.0..250.0 } == true
+private fun isValidBodyWeight(value: String) = value.trim().toDoubleOrNull()?.let { it in 30.0..300.0 } == true
+private fun isValidTimeframe(value: String) = value.trim().toIntOrNull()?.let { it in 1..104 } == true

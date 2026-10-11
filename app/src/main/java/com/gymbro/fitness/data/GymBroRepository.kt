@@ -40,6 +40,7 @@ class GymBroRepository(
     val allSetLogs: Flow<List<WorkoutSetLog>> = workoutSetLogDao.getAllSetLogs()
     fun getSetLogsForExercise(exerciseId: String): Flow<List<WorkoutSetLog>> = workoutSetLogDao.getSetLogsForExercise(exerciseId)
     suspend fun getOneRepMaxForExercise(exerciseId: String): Double? = workoutSetLogDao.getOneRepMaxForExercise(exerciseId)
+    suspend fun getBestEstimatedOneRepMax(exerciseId: String): Double? = workoutSetLogDao.getBestEstimatedOneRepMax(exerciseId)
     suspend fun insertSetLog(log: WorkoutSetLog) = workoutSetLogDao.insertSetLog(log)
     suspend fun deleteSetLog(id: Int) = workoutSetLogDao.deleteSetLog(id)
 

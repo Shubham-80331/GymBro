@@ -260,13 +260,13 @@ fun ProgressScreen(
                         
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                         // Each entry is the day's total, so the most recent entry for today wins.
                         val todaysStepsLog = stepsLogs.filter { it.dateString == today }.maxByOrNull { it.id }
                         val todaysStepCount = todaysStepsLog?.stepsCount ?: 0
                         val todaysSteps = todaysStepsLog?.caloriesBurnt ?: 0
                         val todaysWorkout = sessions.filter { 
-                            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it.dateMillis)) == today 
+                            SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(it.dateMillis)) == today 
                         }.sumOf { it.caloriesBurnt }
                         val totalCalories = todaysSteps + todaysWorkout
 
