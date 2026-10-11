@@ -109,12 +109,18 @@ object FitnessCalculator {
      * Progressive overload: if every set last session hit the target reps, add a small increment;
      * otherwise repeat the same weight. Falls back to the routine's weight with no usable history.
      */
-    fun suggestNextWeight(lastSessionSets: List<LoggedSet>, targetReps: Int, routineWeightKg: Double): Double {
+    fun suggestNextWeight(
+        lastSessionSets: List<LoggedSet>,
+        targetReps: Int,
+        routineWeightKg: Double,
+        largeIncrementKg: Double = 2.5,
+        smallIncrementKg: Double = 1.0
+    ): Double {
         val workingWeight = lastSessionSets.maxOfOrNull { it.weightKg } ?: return routineWeightKg
         if (workingWeight <= 0.0) return routineWeightKg
         val hitAllReps = lastSessionSets.all { it.reps >= targetReps }
         if (!hitAllReps) return workingWeight
-        val increment = if (workingWeight >= 20.0) 2.5 else 1.0
+        val increment = if (workingWeight >= 20.0) largeIncrementKg else smallIncrementKg
         return workingWeight + increment
     }
 

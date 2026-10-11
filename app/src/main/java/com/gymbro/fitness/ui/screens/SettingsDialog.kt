@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymbro.fitness.BuildConfig
+import com.gymbro.fitness.domain.WeightUnit
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.gymbro.fitness.notifications.WorkoutReminder
 import com.gymbro.fitness.ui.GymBroViewModel
@@ -30,6 +31,7 @@ fun SettingsDialog(
 ) {
     val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
+    val unit by viewModel.weightUnit.collectAsState()
     var reminder by remember { mutableStateOf(WorkoutReminder.settings(context)) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -90,6 +92,23 @@ fun SettingsDialog(
         title = { Text("Settings", color = GymVolt, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("UNITS", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    WeightUnit.entries.forEach { option ->
+                        val selected = option == unit
+                        Button(
+                            onClick = { viewModel.setWeightUnit(option) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selected) GymVolt else DarkCard,
+                                contentColor = if (selected) androidx.compose.ui.graphics.Color.Black else TextPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(option.label, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
                 Text("REMINDERS", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
                 Row(
                     modifier = Modifier.fillMaxWidth(),

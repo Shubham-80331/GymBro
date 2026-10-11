@@ -101,7 +101,7 @@ Goal: every number on screen is real and no user data is lost.
 ### 3A. Pro-level workout logger
 | ID | Feature | Size |
 |---|---|---|
-| W-01 | kg/lb unit toggle (store kg, convert in the UI) | S |
+| W-01 | ☑ kg/lb unit toggle (store kg, convert in the UI) | S |
 | W-02 | ☑ "Previous" column per set (last weight × reps), prefill from the last session | S |
 | W-03 | Set types: warm-up, working, drop, failure; optional RPE/RIR | M |
 | W-04 | Add, swap, or reorder exercises mid-workout; supersets | M |

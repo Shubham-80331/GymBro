@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.gymbro.fitness.data.WeightLog
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.ui.theme.*
+import com.gymbro.fitness.domain.WeightUnit
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,6 +40,7 @@ fun ProgressScreen(
     val sessions by viewModel.allSessions.collectAsState()
     val stepsLogs by viewModel.allStepsLogs.collectAsState()
     val exerciseBests by viewModel.exerciseBests.collectAsState()
+    val unit by viewModel.weightUnit.collectAsState()
 
     var showLogDialog by remember { mutableStateOf(false) }
     var showStepsDialog by remember { mutableStateOf(false) }
@@ -55,7 +57,7 @@ fun ProgressScreen(
     LaunchedEffect(profile) {
         profile?.let {
             if (weightInput.isEmpty()) {
-                weightInput = it.weightKg.toString()
+                weightInput = unit.format(it.weightKg)
             }
         }
     }
@@ -133,13 +135,13 @@ fun ProgressScreen(
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    text = profile?.weightKg?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
+                                    text = profile?.weightKg?.let { unit.format(it) } ?: "--",
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Black,
                                     color = TextPrimary
                                 )
                                 Text(
-                                    text = "kg",
+                                    text = unit.label,
                                     fontSize = 12.sp,
                                     color = TextSecondary,
                                     fontWeight = FontWeight.Bold,
@@ -149,14 +151,14 @@ fun ProgressScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             // Dynamic calculated change
                             val loggedDiff = if (weightLogs.size >= 2) {
-                                weightLogs[0].weightKg - weightLogs[1].weightKg
+                                unit.fromKg(weightLogs[0].weightKg - weightLogs[1].weightKg)
                             } else {
                                 null
                             }
                             val changeText = when {
                                 loggedDiff == null -> "Log twice to see change"
-                                loggedDiff < 0 -> String.format(Locale.US, "▼ %.1fkg since prev", -loggedDiff)
-                                else -> String.format(Locale.US, "▲ %.1fkg since prev", loggedDiff)
+                                loggedDiff < 0 -> String.format(Locale.US, "▼ %.1f%s since prev", -loggedDiff, unit.label)
+                                else -> String.format(Locale.US, "▲ %.1f%s since prev", loggedDiff, unit.label)
                             }
                             Text(
                                 text = changeText,
@@ -192,12 +194,13 @@ fun ProgressScreen(
                             // Sessions are ordered newest first, so the record is "new" when the latest session holds it.
                             val latestIsRecord = sessions.size >= 2 && highestVolume != null &&
                                 sessions.first().totalVolumeLoadKg >= highestVolume
-                            val prKiloText = if (highestVolume == null) {
+                            val highestVolumeInUnit = highestVolume?.let { unit.fromKg(it) }
+                            val prKiloText = if (highestVolumeInUnit == null) {
                                 "--"
-                            } else if (highestVolume >= 1000) {
-                                String.format(Locale.US, "%.1fk", highestVolume / 1000.0)
+                            } else if (highestVolumeInUnit >= 1000) {
+                                String.format(Locale.US, "%.1fk", highestVolumeInUnit / 1000.0)
                             } else {
-                                String.format(Locale.US, "%.0f", highestVolume)
+                                String.format(Locale.US, "%.0f", highestVolumeInUnit)
                             }
                             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
@@ -207,7 +210,7 @@ fun ProgressScreen(
                                     color = TextPrimary
                                 )
                                 Text(
-                                    text = "kg",
+                                    text = unit.label,
                                     fontSize = 12.sp,
                                     color = TextSecondary,
                                     fontWeight = FontWeight.Bold,
@@ -404,8 +407,9 @@ fun ProgressScreen(
                                         Text(
                                             text = String.format(
                                                 Locale.US,
-                                                "%.1f kg × %d · %s",
-                                                best.bestWeightKg,
+                                                "%s %s × %d · %s",
+                                                unit.format(best.bestWeightKg),
+                                                unit.label,
                                                 best.bestReps,
                                                 dateFormat.format(Date(best.achievedAtMillis))
                                             ),
@@ -414,7 +418,7 @@ fun ProgressScreen(
                                         )
                                     }
                                     Text(
-                                        text = String.format(Locale.US, "%.1f kg", best.estimatedOneRepMaxKg),
+                                        text = unit.formatWithUnit(best.estimatedOneRepMaxKg),
                                         color = FitGreen,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 16.sp
@@ -459,10 +463,10 @@ fun ProgressScreen(
                                 append("No workouts logged this week yet.")
                             } else {
                                 append("${weekSessions.size} workout${if (weekSessions.size == 1) "" else "s"}, ")
-                                append(String.format(Locale.US, "%,.0f kg lifted.", weekVolume))
+                                append(String.format(Locale.US, "%,.0f %s lifted.", unit.fromKg(weekVolume), unit.label))
                             }
                             if (weekWeightChange != null) {
-                                append(String.format(Locale.US, " Weight %+.1f kg.", weekWeightChange))
+                                append(String.format(Locale.US, " Weight %+.1f %s.", unit.fromKg(weekWeightChange), unit.label))
                             }
                         }
                         Text(
@@ -487,7 +491,7 @@ fun ProgressScreen(
                                     Text(text = "LIFTING VOL", fontSize = 11.sp, color = TextSecondary)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     val totalVol = sessions.sumOf { it.totalVolumeLoadKg }
-                                    Text(text = "${totalVol.toInt()} kg", fontSize = 18.sp, color = FitGreen, fontWeight = FontWeight.Black)
+                                    Text(text = String.format(Locale.US, "%,.0f %s", unit.fromKg(totalVol), unit.label), fontSize = 18.sp, color = FitGreen, fontWeight = FontWeight.Black)
                                     Text(text = "All time", fontSize = 10.sp, color = TextSecondary)
                                 }
                             }
@@ -535,7 +539,7 @@ fun ProgressScreen(
                 }
             } else {
                 items(weightLogs.sortedByDescending { it.dateMillis }) { log ->
-                    WeightLogItem(log = log, onDelete = { viewModel.deleteWeightLogEntry(log.id) })
+                    WeightLogItem(log = log, unit = unit, onDelete = { viewModel.deleteWeightLogEntry(log.id) })
                 }
             }
         }
@@ -553,7 +557,7 @@ fun ProgressScreen(
                         OutlinedTextField(
                             value = weightInput,
                             onValueChange = { weightInput = it },
-                            label = { Text("BODY WEIGHT (kg)", color = TextPrimary) },
+                            label = { Text("BODY WEIGHT (${unit.label})", color = TextPrimary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = GymVolt, focusedLabelColor = GymVolt, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
@@ -600,7 +604,7 @@ fun ProgressScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            val w = weightInput.toDoubleOrNull()
+                            val w = weightInput.trim().toDoubleOrNull()?.let(unit::toKg)
                             if (w != null) {
                                 viewModel.logMorningWeightAndMetrics(
                                     weight = w,
@@ -772,6 +776,7 @@ fun WeightLineChart(
 @Composable
 fun WeightLogItem(
     log: WeightLog,
+    unit: WeightUnit,
     onDelete: () -> Unit
 ) {
     val formatter = SimpleDateFormat("EEEE, MMM dd", Locale.getDefault())
@@ -811,7 +816,7 @@ fun WeightLogItem(
                 ) {
                     Column {
                         Text(text = "WEIGHT", fontSize = 10.sp, color = TextSecondary)
-                        Text(text = "${log.weightKg} kg", fontSize = 16.sp, color = GymVolt, fontWeight = FontWeight.Black)
+                        Text(text = unit.formatWithUnit(log.weightKg), fontSize = 16.sp, color = GymVolt, fontWeight = FontWeight.Black)
                     }
 
                     if (log.waistCm != null) {

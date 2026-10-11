@@ -37,7 +37,7 @@ import com.gymbro.fitness.ui.ActiveWorkoutExercise
 import com.gymbro.fitness.domain.FitnessCalculator
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.gymbro.fitness.ui.GymBroViewModel
-import com.gymbro.fitness.ui.formatKg
+import com.gymbro.fitness.domain.WeightUnit
 import com.gymbro.fitness.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -53,6 +53,7 @@ fun WorkoutsScreen(
     val prCelebration by viewModel.isPrCelebration.collectAsState()
     val workoutSummary by viewModel.workoutSummary.collectAsState()
     val sessions by viewModel.allSessions.collectAsState()
+    val unit by viewModel.weightUnit.collectAsState()
     var sessionPendingDelete by remember { mutableStateOf<WorkoutSession?>(null) }
 
     var showCreateRoutineDialog by remember { mutableStateOf(false) }
@@ -249,7 +250,7 @@ fun WorkoutsScreen(
                         }
                     } else {
                         items(sessions.take(20), key = { it.id }) { session ->
-                            WorkoutHistoryRow(session = session, onDelete = { sessionPendingDelete = session })
+                            WorkoutHistoryRow(session = session, unit = unit, onDelete = { sessionPendingDelete = session })
                         }
                     }
                 }
@@ -268,7 +269,7 @@ fun WorkoutsScreen(
                     Text("Duration: ${summary.durationSeconds / 60} min", color = TextSecondary)
                     Text("Sets completed: ${summary.completedSets}", color = TextSecondary)
                     Text(
-                        String.format(java.util.Locale.US, "Volume: %,.0f kg", summary.totalVolumeKg),
+                        String.format(java.util.Locale.US, "Volume: %,.0f %s", unit.fromKg(summary.totalVolumeKg), unit.label),
                         color = TextSecondary
                     )
                     Text("Calories: ~${summary.caloriesBurnt} kcal", color = TextSecondary)
@@ -880,9 +881,10 @@ fun ActiveExerciseCard(
     viewModel: GymBroViewModel,
     timerActive: Boolean
 ) {
+    val unit by viewModel.weightUnit.collectAsState()
     var showPlates by remember { mutableStateOf(false) }
     if (showPlates) {
-        PlateCalculatorDialog(initialWeightKg = exercise.targetWeightKg, onDismiss = { showPlates = false })
+        PlateCalculatorDialog(initialWeightKg = exercise.targetWeightKg, unit = unit, onDismiss = { showPlates = false })
     }
 
     Card(
@@ -919,7 +921,7 @@ fun ActiveExerciseCard(
             ) {
                 Text(text = "SET", modifier = Modifier.weight(0.6f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(text = "PREVIOUS", modifier = Modifier.weight(1.8f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(text = "ACTUAL KG", modifier = Modifier.weight(1.2f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(text = unit.label.uppercase(), modifier = Modifier.weight(1.2f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(text = "REPS", modifier = Modifier.weight(1f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(text = "STATE", modifier = Modifier.weight(0.8f), color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
@@ -937,7 +939,13 @@ fun ActiveExerciseCard(
                     Text(text = "S${set.setIndex + 1}", modifier = Modifier.weight(0.6f), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
 
                     // Target details
-                    Text(text = set.previousLabel, modifier = Modifier.weight(1.8f), color = TextSecondary, fontSize = 12.sp)
+                    Text(
+                        text = if (set.previousWeightKg != null && set.previousReps != null) {
+                            "${unit.format(set.previousWeightKg)}×${set.previousReps}"
+                        } else {
+                            "-"
+                        },
+                        modifier = Modifier.weight(1.8f), color = TextSecondary, fontSize = 12.sp)
 
                     // Weight TextField Input - disabled after set is completed
                     OutlinedTextField(
@@ -956,7 +964,7 @@ fun ActiveExerciseCard(
                             unfocusedBorderColor = CardStroke,
                             disabledBorderColor = CardStroke.copy(alpha = 0.5f)
                         ),
-                        placeholder = { Text(com.gymbro.fitness.ui.formatKg(set.targetWeightKg), color = TextSecondary, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                        placeholder = { Text(unit.format(set.targetWeightKg), color = TextSecondary, fontSize = 11.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
                     )
 
                     // Repetitions input - disabled after set is completed
@@ -1006,7 +1014,7 @@ fun ActiveExerciseCard(
 }
 
 @Composable
-private fun WorkoutHistoryRow(session: WorkoutSession, onDelete: () -> Unit) {
+private fun WorkoutHistoryRow(session: WorkoutSession, unit: WeightUnit, onDelete: () -> Unit) {
     val dateText = remember(session.dateMillis) {
         java.text.SimpleDateFormat("EEE, d MMM · HH:mm", java.util.Locale.getDefault())
             .format(java.util.Date(session.dateMillis))
@@ -1028,9 +1036,10 @@ private fun WorkoutHistoryRow(session: WorkoutSession, onDelete: () -> Unit) {
                 Text(
                     text = String.format(
                         java.util.Locale.US,
-                        "%d sets · %,.0f kg · %d min",
+                        "%d sets · %,.0f %s · %d min",
                         session.completedSetsCount,
-                        session.totalVolumeLoadKg,
+                        unit.fromKg(session.totalVolumeLoadKg),
+                        unit.label,
                         session.activeTimeSeconds / 60
                     ),
                     color = TextSecondary,
@@ -1045,12 +1054,17 @@ private fun WorkoutHistoryRow(session: WorkoutSession, onDelete: () -> Unit) {
 }
 
 @Composable
-private fun PlateCalculatorDialog(initialWeightKg: Double, onDismiss: () -> Unit) {
-    var weightInput by remember { mutableStateOf(if (initialWeightKg > 0) formatKg(initialWeightKg) else "") }
-    var barInput by remember { mutableStateOf("20") }
+private fun PlateCalculatorDialog(initialWeightKg: Double, unit: WeightUnit, onDismiss: () -> Unit) {
+    // Everything in this dialog is in the user's unit; plates are just numbers in that unit.
+    val asUnit: (Double) -> String = { value ->
+        // Two decimals so 1.25 kg plates aren't rounded to 1.3
+        String.format(java.util.Locale.US, "%.2f", value).trimEnd('0').trimEnd('.')
+    }
+    var weightInput by remember { mutableStateOf(if (initialWeightKg > 0) unit.format(initialWeightKg) else "") }
+    var barInput by remember { mutableStateOf(asUnit(unit.defaultBar)) }
     val target = weightInput.trim().toDoubleOrNull()
-    val bar = barInput.trim().toDoubleOrNull() ?: 20.0
-    val loadout = target?.let { FitnessCalculator.platesPerSide(it, bar) }
+    val bar = barInput.trim().toDoubleOrNull() ?: unit.defaultBar
+    val loadout = target?.let { FitnessCalculator.platesPerSide(it, bar, unit.plates) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1062,7 +1076,7 @@ private fun PlateCalculatorDialog(initialWeightKg: Double, onDismiss: () -> Unit
                     OutlinedTextField(
                         value = weightInput,
                         onValueChange = { weightInput = it },
-                        label = { Text("Total (kg)") },
+                        label = { Text("Total (${unit.label})") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -1070,7 +1084,7 @@ private fun PlateCalculatorDialog(initialWeightKg: Double, onDismiss: () -> Unit
                     OutlinedTextField(
                         value = barInput,
                         onValueChange = { barInput = it },
-                        label = { Text("Bar (kg)") },
+                        label = { Text("Bar (${unit.label})") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -1082,7 +1096,7 @@ private fun PlateCalculatorDialog(initialWeightKg: Double, onDismiss: () -> Unit
                     else -> {
                         Text("Each side:", color = TextSecondary, fontSize = 12.sp)
                         Text(
-                            text = loadout.platesPerSideKg.joinToString("  +  ") { formatKg(it) },
+                            text = loadout.platesPerSideKg.joinToString("  +  ") { asUnit(it) },
                             color = TextPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
@@ -1091,7 +1105,7 @@ private fun PlateCalculatorDialog(initialWeightKg: Double, onDismiss: () -> Unit
                 }
                 if (loadout != null && loadout.remainderKg > 0.0) {
                     Text(
-                        text = "${formatKg(loadout.remainderKg)} kg can't be made with standard plates.",
+                        text = "${asUnit(loadout.remainderKg)} ${unit.label} can't be made with standard plates.",
                         color = ProteinOrange,
                         fontSize = 12.sp
                     )

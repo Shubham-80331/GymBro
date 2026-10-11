@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.gymbro.fitness.data.*
 import com.gymbro.fitness.domain.FitnessCalculator
 import com.gymbro.fitness.domain.LoggedSet
+import com.gymbro.fitness.domain.WeightUnit
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -35,14 +36,16 @@ class ActiveWorkoutSet(
     initialActualWeightKg: String = "",
     initialActualReps: String = "",
     initialIsCompleted: Boolean = false,
-    val previousLabel: String = "-" // what was lifted in this set last session, e.g. "60×8"
+    // What was lifted in this set last session (null when there is no history).
+    val previousWeightKg: Double? = null,
+    val previousReps: Int? = null
 ) {
     var actualWeightKg by mutableStateOf(initialActualWeightKg)
     var actualReps by mutableStateOf(initialActualReps)
     var isCompleted by mutableStateOf(initialIsCompleted)
 
-    /** What gets logged: the typed value, or the target when the field was left blank. */
-    fun loggedWeightKg(): Double = actualWeightKg.toDoubleOrNull() ?: targetWeightKg
+    /** What gets logged: the typed value (in the user's unit), or the target when left blank. */
+    fun loggedWeightKg(unit: WeightUnit): Double = actualWeightKg.toDoubleOrNull()?.let(unit::toKg) ?: targetWeightKg
     fun loggedReps(): Int = actualReps.toIntOrNull() ?: targetReps
 }
 
@@ -93,6 +96,15 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     private val activeWorkoutFile = File(application.filesDir, "active_workout.json")
     private val activeWorkoutAdapter = moshi.adapter(ActiveWorkoutSnapshot::class.java)
     private var saveActiveWorkoutJob: Job? = null
+
+    private val settingsPrefs = application.getSharedPreferences("gymbro_settings", android.content.Context.MODE_PRIVATE)
+    private val _weightUnit = MutableStateFlow(WeightUnit.fromStorage(settingsPrefs.getString("weight_unit", null)))
+    val weightUnit: StateFlow<WeightUnit> = _weightUnit.asStateFlow()
+
+    fun setWeightUnit(unit: WeightUnit) {
+        _weightUnit.value = unit
+        settingsPrefs.edit().putString("weight_unit", unit.name).apply()
+    }
 
     private val database: GymBroDatabase
     private val repository: GymBroRepository
@@ -342,17 +354,20 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 val lastSessionSets = pastLogs
                     .filter { it.dateMillis == pastLogs.firstOrNull()?.dateMillis }
                     .sortedBy { it.setIndex }
+                val unit = _weightUnit.value
                 val suggestedWeight = FitnessCalculator.suggestNextWeight(
                     lastSessionSets = lastSessionSets.map { LoggedSet(it.weightKg, it.reps) },
                     targetReps = re.targetReps,
-                    routineWeightKg = re.targetWeightKg
+                    routineWeightKg = re.targetWeightKg,
+                    largeIncrementKg = unit.largeIncrementKg,
+                    smallIncrementKg = unit.smallIncrementKg
                 )
                 val lastWorkingWeight = lastSessionSets.maxOfOrNull { it.weightKg } ?: 0.0
                 val coachMessage = when {
                     lastSessionSets.isEmpty() -> "First session for this exercise! Let's go!"
                     suggestedWeight > lastWorkingWeight ->
-                        "Hit every rep last time → go up to ${formatKg(suggestedWeight)} kg today"
-                    else -> "Repeat ${formatKg(suggestedWeight)} kg and beat last time's reps"
+                        "Hit every rep last time → go up to ${unit.formatWithUnit(suggestedWeight)} today"
+                    else -> "Repeat ${unit.formatWithUnit(suggestedWeight)} and beat last time's reps"
                 }
 
                 ActiveWorkoutExercise(
@@ -370,7 +385,8 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                             setIndex = i,
                             targetWeightKg = suggestedWeight,
                             targetReps = re.targetReps,
-                            previousLabel = previous?.let { "${formatKg(it.weightKg)}×${it.reps}" } ?: "-"
+                            previousWeightKg = previous?.weightKg,
+                            previousReps = previous?.reps
                         )
                     }
                 )
@@ -396,11 +412,12 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         if (set.isCompleted) {
             startRestTimer(exercise.restSeconds)
 
-            val setOneRepMax = FitnessCalculator.estimatedOneRepMax(set.loggedWeightKg(), set.loggedReps())
+            val unit = _weightUnit.value
+            val setOneRepMax = FitnessCalculator.estimatedOneRepMax(set.loggedWeightKg(unit), set.loggedReps())
             // Earlier sets in this workout count too, so only a set that beats them is a new PR.
             val bestThisSession = exercise.sets
                 .filter { it !== set && it.isCompleted }
-                .maxOfOrNull { FitnessCalculator.estimatedOneRepMax(it.loggedWeightKg(), it.loggedReps()) } ?: 0.0
+                .maxOfOrNull { FitnessCalculator.estimatedOneRepMax(it.loggedWeightKg(unit), it.loggedReps()) } ?: 0.0
             viewModelScope.launch {
                 val bestHistoric = repository.getBestEstimatedOneRepMax(exercise.exerciseId) ?: 0.0
                 // With no history the first lift is a baseline, not a record.
@@ -432,7 +449,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 var bestSoFar = repository.getBestEstimatedOneRepMax(ex.exerciseId) ?: 0.0
                 val hasHistory = bestSoFar > 0.0
                 ex.sets.filter { it.isCompleted }.forEach { set ->
-                    val weight = set.loggedWeightKg()
+                    val weight = set.loggedWeightKg(_weightUnit.value)
                     val reps = set.loggedReps()
                     totalVolume += weight * reps
                     completedCount++
@@ -885,7 +902,8 @@ data class ActiveSetSnapshot(
     val actualWeightKg: String,
     val actualReps: String,
     val isCompleted: Boolean,
-    val previousLabel: String = "-"
+    val previousWeightKg: Double? = null,
+    val previousReps: Int? = null
 )
 
 private fun ActiveWorkoutSession.toSnapshot() = ActiveWorkoutSnapshot(
@@ -910,7 +928,8 @@ private fun ActiveWorkoutSession.toSnapshot() = ActiveWorkoutSnapshot(
                     actualWeightKg = set.actualWeightKg,
                     actualReps = set.actualReps,
                     isCompleted = set.isCompleted,
-                    previousLabel = set.previousLabel
+                    previousWeightKg = set.previousWeightKg,
+                    previousReps = set.previousReps
                 )
             }
         )
@@ -939,13 +958,10 @@ private fun ActiveWorkoutSnapshot.toActiveWorkout() = ActiveWorkoutSession(
                     initialActualWeightKg = set.actualWeightKg,
                     initialActualReps = set.actualReps,
                     initialIsCompleted = set.isCompleted,
-                    previousLabel = set.previousLabel
+                    previousWeightKg = set.previousWeightKg,
+                    previousReps = set.previousReps
                 )
             }
         )
     }
 )
-
-/** 60.0 -> "60", 62.5 -> "62.5" */
-fun formatKg(kg: Double): String =
-    if (kg % 1.0 == 0.0) kg.toInt().toString() else String.format(Locale.US, "%.1f", kg)

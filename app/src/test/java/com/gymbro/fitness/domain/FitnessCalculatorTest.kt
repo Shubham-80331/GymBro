@@ -107,6 +107,24 @@ class FitnessCalculatorTest {
         assertTrue(FitnessCalculator.platesPerSide(15.0).platesPerSideKg.isEmpty())
     }
 
+    @Test
+    fun `pound users progress in 5 lb steps`() {
+        val lb = WeightUnit.LB
+        val last = listOf(LoggedSet(lb.toKg(135.0), 5), LoggedSet(lb.toKg(135.0), 5))
+        val next = FitnessCalculator.suggestNextWeight(last, 5, 0.0, lb.largeIncrementKg, lb.smallIncrementKg)
+        assertEquals("140", lb.format(next))
+    }
+
+    @Test
+    fun `weight unit formats and converts`() {
+        assertEquals("62.5", WeightUnit.KG.format(62.5))
+        assertEquals("100", WeightUnit.KG.format(100.0))
+        assertEquals("225", WeightUnit.LB.format(WeightUnit.LB.toKg(225.0)))
+        assertEquals("220.5 lb", WeightUnit.LB.formatWithUnit(100.0))
+        assertEquals(WeightUnit.KG, WeightUnit.fromStorage(null))
+        assertEquals(WeightUnit.LB, WeightUnit.fromStorage("LB"))
+    }
+
     private fun noon(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 12)
         set(Calendar.MINUTE, 0)
