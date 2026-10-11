@@ -26,3 +26,8 @@
 -keepattributes Signature, InnerClasses, EnclosingMethod, *Annotation*
 -keep,allowobfuscation,allowshrinking interface com.gymbro.fitness.data.GeminiApiService
 -keep,allowobfuscation,allowshrinking interface com.gymbro.fitness.data.OpenFoodFactsApi
+
+# OkHttp can use these optional TLS providers when present; the app doesn't ship them.
+-dontwarn org.bouncycastle.jsse.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
