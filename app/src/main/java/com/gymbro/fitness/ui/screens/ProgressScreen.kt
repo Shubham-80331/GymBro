@@ -41,6 +41,7 @@ fun ProgressScreen(
     val stepsLogs by viewModel.allStepsLogs.collectAsState()
     val exerciseBests by viewModel.exerciseBests.collectAsState()
     val unit by viewModel.weightUnit.collectAsState()
+    val weeklySets by viewModel.weeklySetsByMuscle.collectAsState()
 
     var showLogDialog by remember { mutableStateOf(false) }
     var showStepsDialog by remember { mutableStateOf(false) }
@@ -366,6 +367,57 @@ fun ProgressScreen(
                                     .fillMaxWidth()
                                     .height(180.dp)
                             )
+                        }
+                    }
+                }
+            }
+
+            // Weekly sets per muscle group
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = "WEEKLY SETS PER MUSCLE", fontSize = 12.sp, color = GymVolt, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Last 7 days. Around 10–20 hard sets per muscle a week works well for growth.",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        listOf("Chest", "Back", "Legs", "Shoulders", "Arms", "Core").forEach { muscle ->
+                            val count = weeklySets[muscle] ?: 0
+                            val barColor = when {
+                                count < 10 -> ProteinOrange
+                                count <= 20 -> FitGreen
+                                else -> ElectricBlue
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = muscle, color = TextPrimary, fontSize = 13.sp, modifier = Modifier.width(80.dp))
+                                LinearProgressIndicator(
+                                    progress = { (count / 20f).coerceIn(0f, 1f) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(8.dp),
+                                    color = barColor,
+                                    trackColor = DarkCard
+                                )
+                                Text(
+                                    text = "$count",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(36.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                                )
+                            }
                         }
                     }
                 }

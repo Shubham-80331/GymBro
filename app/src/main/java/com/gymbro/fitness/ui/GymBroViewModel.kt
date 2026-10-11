@@ -135,6 +135,9 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     /** Best set per exercise, ranked by estimated 1RM. */
     val exerciseBests: StateFlow<List<ExerciseBest>>
 
+    /** Completed sets per muscle group over the last 7 days. */
+    val weeklySetsByMuscle: StateFlow<Map<String, Int>>
+
     // Active Workout State
     private val _activeWorkout = MutableStateFlow<ActiveWorkoutSession?>(null)
     val activeWorkout: StateFlow<ActiveWorkoutSession?> = _activeWorkout.asStateFlow()
@@ -248,6 +251,16 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+        weeklySetsByMuscle = combine(repository.allSetLogs, repository.allExercises) { logs, exercises ->
+            val muscleById = exercises.associate { it.id to it.muscleGroup }
+            val weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+            logs.filter { it.dateMillis >= weekAgo }
+                .groupingBy { muscleById[it.exerciseId] ?: "Other" }
+                .eachCount()
+        }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
         allExercises = repository.allExercises.stateIn(
             scope = viewModelScope,
