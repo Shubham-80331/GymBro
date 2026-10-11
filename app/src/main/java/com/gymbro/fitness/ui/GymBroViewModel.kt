@@ -547,6 +547,12 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun deleteWorkoutSession(session: WorkoutSession) {
+        viewModelScope.launch {
+            repository.deleteSession(session)
+        }
+    }
+
     fun deleteRoutine(id: Int) {
         viewModelScope.launch {
             repository.deleteRoutineById(id)

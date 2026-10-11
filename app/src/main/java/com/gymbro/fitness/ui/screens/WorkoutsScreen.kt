@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymbro.fitness.data.Routine
 import com.gymbro.fitness.data.RoutineExercise
+import com.gymbro.fitness.data.WorkoutSession
 import com.gymbro.fitness.ui.ActiveWorkoutExercise
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.gymbro.fitness.ui.GymBroViewModel
@@ -49,6 +50,8 @@ fun WorkoutsScreen(
     val streak by viewModel.workoutStreak.collectAsState()
     val prCelebration by viewModel.isPrCelebration.collectAsState()
     val workoutSummary by viewModel.workoutSummary.collectAsState()
+    val sessions by viewModel.allSessions.collectAsState()
+    var sessionPendingDelete by remember { mutableStateOf<WorkoutSession?>(null) }
 
     var showCreateRoutineDialog by remember { mutableStateOf(false) }
     var routineNameInput by remember { mutableStateOf("") }
@@ -209,7 +212,7 @@ fun WorkoutsScreen(
                                     .height(150.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "Routines initialization loading...", color = TextSecondary)
+                                Text(text = "No routines yet. Tap NEW SPLIT to build one.", color = TextSecondary)
                             }
                         }
                     } else {
@@ -226,6 +229,25 @@ fun WorkoutsScreen(
                                 },
                                 onDeleteClick = { routinePendingDelete = routine }
                             )
+                        }
+                    }
+
+                    // Workout history
+                    item {
+                        Text(
+                            text = "HISTORY",
+                            color = GymVolt,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    if (sessions.isEmpty()) {
+                        item {
+                            Text(text = "Finished workouts show up here.", color = TextSecondary, fontSize = 13.sp)
+                        }
+                    } else {
+                        items(sessions.take(20), key = { it.id }) { session ->
+                            WorkoutHistoryRow(session = session, onDelete = { sessionPendingDelete = session })
                         }
                     }
                 }
@@ -260,6 +282,33 @@ fun WorkoutsScreen(
             confirmButton = {
                 TextButton(onClick = { viewModel.dismissWorkoutSummary() }) {
                     Text("NICE", color = GymVolt, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    sessionPendingDelete?.let { session ->
+        AlertDialog(
+            onDismissRequest = { sessionPendingDelete = null },
+            containerColor = DarkSurface,
+            title = { Text("Delete this workout?", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "${session.routineName} and its ${session.completedSetsCount} logged sets will be removed from your history and PRs.",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteWorkoutSession(session)
+                    sessionPendingDelete = null
+                }) {
+                    Text("DELETE", color = ErrorRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionPendingDelete = null }) {
+                    Text("CANCEL", color = TextSecondary)
                 }
             }
         )
@@ -941,6 +990,45 @@ fun ActiveExerciseCard(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkoutHistoryRow(session: WorkoutSession, onDelete: () -> Unit) {
+    val dateText = remember(session.dateMillis) {
+        java.text.SimpleDateFormat("EEE, d MMM · HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date(session.dateMillis))
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = session.routineName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(text = dateText, color = TextSecondary, fontSize = 11.sp)
+                Text(
+                    text = String.format(
+                        java.util.Locale.US,
+                        "%d sets · %,.0f kg · %d min",
+                        session.completedSetsCount,
+                        session.totalVolumeLoadKg,
+                        session.activeTimeSeconds / 60
+                    ),
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete workout", tint = TextSecondary)
             }
         }
     }

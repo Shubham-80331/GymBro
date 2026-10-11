@@ -37,6 +37,10 @@ class GymBroRepository(
     // Workout Sessions
     val allSessions: Flow<List<WorkoutSession>> = workoutSessionDao.getAllSessions()
     suspend fun logSession(session: WorkoutSession) = workoutSessionDao.insertSession(session)
+    suspend fun deleteSession(session: WorkoutSession) {
+        workoutSetLogDao.deleteSetLogsForSession(session.dateMillis)
+        workoutSessionDao.deleteSession(session.id)
+    }
 
     // Set Logs
     val allSetLogs: Flow<List<WorkoutSetLog>> = workoutSetLogDao.getAllSetLogs()

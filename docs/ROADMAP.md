@@ -54,7 +54,7 @@ Goal: every number on screen is real and no user data is lost.
 | D-06 | ☑ Confirm before deleting a routine or log entry, with an undo snackbar | S |
 | D-07 | ☑ Handle the system back button during a workout ("Discard / Finish / Keep going") | S |
 | D-08 | ☑ Input validation everywhere: ranges for age, weight, height, reps, and macros; no silent defaults | S |
-| D-09 | Allow editing and deleting past workout sessions and their sets | M |
+| D-09 | ◐ Allow editing and deleting past workout sessions and their sets | M |
 
 ### 1C. Rest timer that works in the background
 | ID | Task | Size |

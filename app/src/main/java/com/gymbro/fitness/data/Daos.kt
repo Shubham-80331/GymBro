@@ -58,6 +58,9 @@ interface WorkoutSessionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: WorkoutSession)
+
+    @Query("DELETE FROM workout_sessions WHERE id = :id")
+    suspend fun deleteSession(id: Int)
 }
 
 @Dao
@@ -84,6 +87,10 @@ interface WorkoutSetLogDao {
 
     @Query("DELETE FROM workout_set_logs WHERE id = :id")
     suspend fun deleteSetLog(id: Int)
+
+    /** Sets are saved with their session's timestamp, which links them to it. */
+    @Query("DELETE FROM workout_set_logs WHERE dateMillis = :sessionDateMillis")
+    suspend fun deleteSetLogsForSession(sessionDateMillis: Long)
 }
 
 @Dao
