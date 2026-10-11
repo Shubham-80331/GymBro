@@ -89,6 +89,7 @@ data class ActiveWorkoutSession(
     val startTimeMillis: Long = System.currentTimeMillis()
 )
 
+@OptIn(ExperimentalCoroutinesApi::class) // flatMapLatest for the selected-day nutrition flows
 class GymBroViewModel(application: Application) : AndroidViewModel(application) {
 
     private val moshi = Moshi.Builder().build()

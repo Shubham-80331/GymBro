@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -136,7 +137,7 @@ fun GymBroApp(
                             GymBroTab.COACH -> if (isSelected) Icons.Default.SmartToy else Icons.Default.SmartToy
                             GymBroTab.WORKOUT -> if (isSelected) Icons.Default.FitnessCenter else Icons.Default.FitnessCenter
                             GymBroTab.DIET -> if (isSelected) Icons.Default.Restaurant else Icons.Default.Restaurant
-                            GymBroTab.PROGRESS -> if (isSelected) Icons.Default.TrendingUp else Icons.Default.TrendingUp
+                            GymBroTab.PROGRESS -> Icons.AutoMirrored.Filled.TrendingUp
                         }
 
                         NavigationBarItem(
