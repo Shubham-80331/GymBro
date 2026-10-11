@@ -38,6 +38,77 @@ fun CoachScreen(
     val profile by viewModel.userProfile.collectAsState()
 
     var textInput by remember { mutableStateOf("") }
+    var showRoutineBuilder by remember { mutableStateOf(false) }
+    var routineRequest by remember { mutableStateOf("") }
+    val routineDraft by viewModel.aiRoutineDraft.collectAsState()
+    val routineStatus by viewModel.aiRoutineStatus.collectAsState()
+
+    if (showRoutineBuilder) {
+        AlertDialog(
+            onDismissRequest = {
+                showRoutineBuilder = false
+                viewModel.dismissAiRoutineDraft()
+            },
+            containerColor = DarkSurface,
+            title = { Text("Build a routine with GymBro", color = GymVolt, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val draft = routineDraft
+                    if (draft == null) {
+                        OutlinedTextField(
+                            value = routineRequest,
+                            onValueChange = { routineRequest = it },
+                            placeholder = { Text("e.g. 45-min upper body, dumbbells only", color = TextSecondary) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        routineStatus?.let { Text(it, color = TextSecondary, fontSize = 12.sp) }
+                    } else {
+                        Text(draft.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        if (draft.description.isNotBlank()) {
+                            Text(draft.description, color = TextSecondary, fontSize = 12.sp)
+                        }
+                        draft.exercises.forEach { ex ->
+                            Text(
+                                "• ${ex.name}: ${ex.targetSets} × ${ex.targetReps}, rest ${ex.restSeconds}s",
+                                color = TextPrimary,
+                                fontSize = 13.sp
+                            )
+                        }
+                        Text("AI suggestions can be wrong. Adjust weights to what feels safe.", color = TextSecondary, fontSize = 11.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                if (routineDraft == null) {
+                    TextButton(
+                        onClick = { viewModel.requestAiRoutine(routineRequest) },
+                        enabled = routineRequest.isNotBlank() && routineStatus != "Building your routine…"
+                    ) {
+                        Text("BUILD", color = GymVolt, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    TextButton(onClick = {
+                        viewModel.saveAiRoutineDraft()
+                        showRoutineBuilder = false
+                    }) {
+                        Text("SAVE ROUTINE", color = GymVolt, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    if (routineDraft != null) {
+                        viewModel.dismissAiRoutineDraft() // back to editing the request
+                    } else {
+                        showRoutineBuilder = false
+                        viewModel.dismissAiRoutineDraft()
+                    }
+                }) {
+                    Text(if (routineDraft != null) "TRY AGAIN" else "CANCEL", color = TextSecondary)
+                }
+            }
+        )
+    }
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
 
@@ -74,14 +145,27 @@ fun CoachScreen(
                             .padding(bottom = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val suggestion1 = "Recommend a custom 3-day workout split for me"
                         val suggestion2 = "Am I eating enough protein to gain muscle?"
                         val suggestion3 = "Teach me progression secrets"
                         
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(GymVolt)
+                                .clickable {
+                                    routineRequest = ""
+                                    viewModel.dismissAiRoutineDraft()
+                                    showRoutineBuilder = true
+                                }
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "Build Routine", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                         listOf(
-                            "Workout Split" to suggestion1,
                             "Protein Advice" to suggestion2,
-                            "Bulk Secrets" to suggestion3
+                            "Progression" to suggestion3
                         ).forEach { (label, promptText) ->
                             Box(
                                 modifier = Modifier
@@ -110,6 +194,13 @@ fun CoachScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    IconButton(onClick = {
+                        routineRequest = ""
+                        viewModel.dismissAiRoutineDraft()
+                        showRoutineBuilder = true
+                    }) {
+                        Icon(imageVector = Icons.Default.FitnessCenter, contentDescription = "Build a routine", tint = GymVolt)
+                    }
                     OutlinedTextField(
                         value = textInput,
                         onValueChange = { textInput = it },

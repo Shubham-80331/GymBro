@@ -157,7 +157,7 @@ Goal: every number on screen is real and no user data is lost.
 | ID | Feature | Size |
 |---|---|---|
 | AI-01 | ◐ (multi-turn + recent workouts/weight in context done; chat not yet persisted) Coach that knows your data: send recent workouts, PRs, adherence, and weight trend as context; persist chat history | M |
-| AI-02 | Structured output → "Make me a 4-day split" creates a saveable routine in one tap | M |
+| AI-02 | ☑ Structured output → "Make me a 4-day split" creates a saveable routine in one tap | M |
 | AI-03 | AI meal logging: photo or "2 eggs + toast" → macros pre-filled for confirmation | M |
 | AI-04 | Weekly AI check-in report (volume trend, protein hit rate, next-week plan) | M |
 | AI-05 | Form-cue Q&A per exercise | S |

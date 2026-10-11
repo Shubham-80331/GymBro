@@ -34,7 +34,29 @@ data class CoachReply(val text: String, val isError: Boolean = false)
 @JsonClass(generateAdapter = true)
 data class GeminiGenerateRequest(
     val contents: List<GeminiContent>,
-    val systemInstruction: GeminiContent? = null
+    val systemInstruction: GeminiContent? = null,
+    val generationConfig: GeminiGenerationConfig? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiGenerationConfig(
+    val responseMimeType: String? = null // "application/json" asks for JSON-only output
+)
+
+/** Shape the coach must return when asked to build a routine. */
+@JsonClass(generateAdapter = true)
+data class AiRoutinePlan(
+    val name: String = "",
+    val description: String = "",
+    val exercises: List<AiRoutineSlot> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class AiRoutineSlot(
+    val exerciseId: String = "",
+    val sets: Int = 3,
+    val reps: Int = 10,
+    val restSeconds: Int = 90
 )
 
 @JsonClass(generateAdapter = true)
@@ -79,19 +101,58 @@ object GeminiClient {
 
     private const val MAX_HISTORY_TURNS = 20
 
-    suspend fun generateGymBroResponse(conversation: List<CoachTurn>, profileContext: String): CoachReply {
-        val apiKey = try {
+    /**
+     * Asks Gemini for a single routine as JSON. Only ids from [exerciseCatalog] ("ID: Name (Muscle, Equipment)"
+     * lines) are allowed; the caller still validates them. Returns the raw JSON, or an error reply.
+     */
+    suspend fun generateRoutineJson(request: String, profileContext: String, exerciseCatalog: String): CoachReply {
+        val apiKey = configuredApiKey() ?: return CoachReply(
+            "The AI coach isn't set up in this build yet, so it can't build routines.",
+            isError = true
+        )
+        val instruction = """
+            You are GymBro, an evidence-based strength coach. Build ONE gym routine (a single session) for the user's request.
+            Respond with JSON only, matching exactly:
+            {"name": string, "description": string, "exercises": [{"exerciseId": string, "sets": int, "reps": int, "restSeconds": int}]}
+            Rules: 4 to 8 exercises; use ONLY exerciseId values from the catalog below; sets 1-6; reps 3-20; restSeconds 45-240;
+            put big compound lifts first; keep "name" under 30 characters and "description" under 80.
+            User context:
+            $profileContext
+            Exercise catalog:
+            $exerciseCatalog
+        """.trimIndent()
+        val body = GeminiGenerateRequest(
+            contents = listOf(GeminiContent(parts = listOf(GeminiPart(text = request)), role = "user")),
+            systemInstruction = GeminiContent(parts = listOf(GeminiPart(text = instruction))),
+            generationConfig = GeminiGenerationConfig(responseMimeType = "application/json")
+        )
+        return try {
+            val text = api.generateContent(apiKey, body).candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            if (text.isNullOrBlank()) CoachReply("I couldn't build that routine. Try describing it differently.", isError = true)
+            else CoachReply(text)
+        } catch (e: HttpException) {
+            CoachReply(if (e.code() == 429) "Lots of requests right now. Try again in a minute." else "The coach is having trouble right now. Please try again shortly.", isError = true)
+        } catch (e: IOException) {
+            CoachReply("Can't reach the coach. Check your internet connection and try again.", isError = true)
+        } catch (e: Exception) {
+            CoachReply("Something went wrong on my side. Please try again.", isError = true)
+        }
+    }
+
+    private fun configuredApiKey(): String? {
+        val key = try {
             BuildConfig.GEMINI_API_KEY
         } catch (e: Exception) {
             ""
         }
+        return key.takeUnless { it.isEmpty() || it == "MY_GEMINI_API_KEY" || it == "GEMINI_API_KEY" }
+    }
 
-        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY" || apiKey == "GEMINI_API_KEY") {
-            return CoachReply(
-                "The AI coach isn't set up in this build yet. Your workouts and nutrition tracking still work normally.",
-                isError = true
-            )
-        }
+    suspend fun generateGymBroResponse(conversation: List<CoachTurn>, profileContext: String): CoachReply {
+        val apiKey = configuredApiKey() ?: return CoachReply(
+            "The AI coach isn't set up in this build yet. Your workouts and nutrition tracking still work normally.",
+            isError = true
+        )
 
         val systemInstructionText = """
             You are "GymBro", an energetic, supportive, and knowledgeable virtual gym partner, workout coach, and nutrition advisor.

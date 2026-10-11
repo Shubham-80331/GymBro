@@ -845,23 +845,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         _isChatLoading.value = true
 
         viewModelScope.launch {
-            val profile = repository.getUserProfileOneShot()
-            val profileContext = if (profile != null) {
-                """
-                    User Info:
-                    - Age: ${profile.age} years old
-                    - Gender: ${profile.gender}
-                    - Weight: ${profile.weightKg}kg
-                    - Height: ${profile.heightCm}cm
-                    - Activity Level: ${profile.activityLevel}
-                    - Goal: ${profile.primaryGoal} (Target weight: ${profile.targetWeightKg}kg in ${profile.timeframeWeeks} weeks)
-                    - Calculated TDEE: ${profile.tdee.toInt()} kcal
-                    - Caloric Target: ${profile.targetCalories} kcal (Ratio: Carbs ${profile.targetCarbsGrams}g, Protein ${profile.targetProteinGrams}g, Fats ${profile.targetFatsGrams}g)
-                """.trimIndent()
-            } else {
-                "User has not set up their profile or completed onboarding yet."
-            }
-            val context = profileContext + "\n" + recentTrainingContext()
+            val context = coachContext()
 
             val conversation = _chatMessages.value
                 .filter { !it.isError }
@@ -901,6 +885,88 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             }
             _chatMessages.value = _chatMessages.value.take(1) // keep only the greeting
         }
+    }
+
+    private suspend fun coachContext(): String {
+        val profile = repository.getUserProfileOneShot()
+        val profileContext = if (profile != null) {
+            """
+                User Info:
+                - Age: ${profile.age} years old
+                - Gender: ${profile.gender}
+                - Weight: ${profile.weightKg}kg
+                - Height: ${profile.heightCm}cm
+                - Activity Level: ${profile.activityLevel}
+                - Goal: ${profile.primaryGoal} (Target weight: ${profile.targetWeightKg}kg in ${profile.timeframeWeeks} weeks)
+                - Calculated TDEE: ${profile.tdee.toInt()} kcal
+                - Caloric Target: ${profile.targetCalories} kcal (Ratio: Carbs ${profile.targetCarbsGrams}g, Protein ${profile.targetProteinGrams}g, Fats ${profile.targetFatsGrams}g)
+            """.trimIndent()
+        } else {
+            "User has not set up their profile or completed onboarding yet."
+        }
+        return profileContext + "\n" + recentTrainingContext()
+    }
+
+    // AI routine builder: the coach drafts a routine, the user reviews and saves it.
+    data class AiRoutineDraft(val name: String, val description: String, val exercises: List<RoutineExercise>)
+
+    private val _aiRoutineDraft = MutableStateFlow<AiRoutineDraft?>(null)
+    val aiRoutineDraft: StateFlow<AiRoutineDraft?> = _aiRoutineDraft.asStateFlow()
+    private val _aiRoutineStatus = MutableStateFlow<String?>(null)
+    val aiRoutineStatus: StateFlow<String?> = _aiRoutineStatus.asStateFlow()
+
+    fun requestAiRoutine(request: String) {
+        if (request.isBlank()) return
+        _aiRoutineStatus.value = "Building your routine…"
+        _aiRoutineDraft.value = null
+        viewModelScope.launch {
+            val library = repository.allExercises.first().associateBy { it.id }
+            val catalog = library.values.joinToString("\n") { "${it.id}: ${it.name} (${it.muscleGroup}, ${it.equipment})" }
+            val reply = GeminiClient.generateRoutineJson(request, coachContext(), catalog)
+            if (reply.isError) {
+                _aiRoutineStatus.value = reply.text
+                return@launch
+            }
+            val plan = runCatching { moshi.adapter(AiRoutinePlan::class.java).fromJson(reply.text) }.getOrNull()
+            // Never trust ids or numbers from the model: keep known exercises and clamp to sane ranges.
+            val exercises = plan?.exercises.orEmpty().mapNotNull { slot ->
+                val exercise = library[slot.exerciseId] ?: return@mapNotNull null
+                RoutineExercise(
+                    exerciseId = exercise.id,
+                    name = exercise.name,
+                    muscleGroup = exercise.muscleGroup,
+                    targetSets = slot.sets.coerceIn(1, 6),
+                    targetReps = slot.reps.coerceIn(1, 30),
+                    restSeconds = slot.restSeconds.coerceIn(30, 300),
+                    targetWeightKg = 0.0
+                )
+            }.distinctBy { it.exerciseId }
+            if (plan == null || exercises.isEmpty()) {
+                _aiRoutineStatus.value = "I couldn't build a usable routine from that. Try describing it differently."
+                return@launch
+            }
+            _aiRoutineStatus.value = null
+            _aiRoutineDraft.value = AiRoutineDraft(
+                name = plan.name.ifBlank { "Coach Routine" }.take(40),
+                description = plan.description.take(120),
+                exercises = exercises
+            )
+        }
+    }
+
+    fun saveAiRoutineDraft() {
+        val draft = _aiRoutineDraft.value ?: return
+        _aiRoutineDraft.value = null
+        createRoutine(draft.name, draft.description, draft.exercises)
+        _chatMessages.value = _chatMessages.value + ChatMessage(
+            sender = "GymBro",
+            text = "Saved \"${draft.name}\" to your routines. Find it in the Workout tab and let's get after it! 💪"
+        )
+    }
+
+    fun dismissAiRoutineDraft() {
+        _aiRoutineDraft.value = null
+        _aiRoutineStatus.value = null
     }
 
     /** Recent sessions and weight trend so the coach can answer from the user's real data. */
