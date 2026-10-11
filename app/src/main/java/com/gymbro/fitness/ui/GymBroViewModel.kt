@@ -56,6 +56,15 @@ data class ActiveWorkoutExercise(
     val lastSessionMessage: String = ""
 )
 
+data class WorkoutSummary(
+    val routineName: String,
+    val durationSeconds: Int,
+    val completedSets: Int,
+    val totalVolumeKg: Double,
+    val caloriesBurnt: Int,
+    val prExerciseNames: List<String>
+)
+
 data class ActiveWorkoutSession(
     val routineId: Int,
     val routineName: String,
@@ -133,6 +142,13 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
     // Streak and PR states
     private val _workoutStreak = MutableStateFlow(0)
     val workoutStreak: StateFlow<Int> = _workoutStreak.asStateFlow()
+
+    private val _workoutSummary = MutableStateFlow<WorkoutSummary?>(null)
+    val workoutSummary: StateFlow<WorkoutSummary?> = _workoutSummary.asStateFlow()
+
+    fun dismissWorkoutSummary() {
+        _workoutSummary.value = null
+    }
 
     private val _isPrCelebration = MutableStateFlow<String?>(null) // Name of exercise for PR celebration banner
     val isPrCelebration: StateFlow<String?> = _isPrCelebration.asStateFlow()
@@ -366,6 +382,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             var totalVolume = 0.0
             var completedCount = 0
+            val prExercises = linkedSetOf<String>()
 
             val now = System.currentTimeMillis()
 
@@ -381,6 +398,7 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                     val oneRepMax = FitnessCalculator.estimatedOneRepMax(weight, reps)
                     val isPr = hasHistory && oneRepMax > bestSoFar
                     bestSoFar = maxOf(bestSoFar, oneRepMax)
+                    if (isPr) prExercises += ex.name
 
                     repository.insertSetLog(
                         WorkoutSetLog(
@@ -409,6 +427,14 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
             )
 
             repository.logSession(sessionLog)
+            _workoutSummary.value = WorkoutSummary(
+                routineName = current.routineName,
+                durationSeconds = elapsedTimeSeconds,
+                completedSets = completedCount,
+                totalVolumeKg = totalVolume,
+                caloriesBurnt = sessionLog.caloriesBurnt,
+                prExerciseNames = prExercises.toList()
+            )
             _activeWorkout.value = null
             clearSavedActiveWorkout()
             stopRestTimer()

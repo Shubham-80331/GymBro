@@ -48,6 +48,7 @@ fun WorkoutsScreen(
     val activeSession by viewModel.activeWorkout.collectAsState()
     val streak by viewModel.workoutStreak.collectAsState()
     val prCelebration by viewModel.isPrCelebration.collectAsState()
+    val workoutSummary by viewModel.workoutSummary.collectAsState()
 
     var showCreateRoutineDialog by remember { mutableStateOf(false) }
     var routineNameInput by remember { mutableStateOf("") }
@@ -230,6 +231,38 @@ fun WorkoutsScreen(
                 }
             }
         }
+    }
+
+    workoutSummary?.let { summary ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissWorkoutSummary() },
+            containerColor = DarkSurface,
+            title = { Text("Workout complete 💪", color = GymVolt, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(summary.routineName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Duration: ${summary.durationSeconds / 60} min", color = TextSecondary)
+                    Text("Sets completed: ${summary.completedSets}", color = TextSecondary)
+                    Text(
+                        String.format(java.util.Locale.US, "Volume: %,.0f kg", summary.totalVolumeKg),
+                        color = TextSecondary
+                    )
+                    Text("Calories: ~${summary.caloriesBurnt} kcal", color = TextSecondary)
+                    if (summary.prExerciseNames.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("New PRs 🏆", color = ProteinOrange, fontWeight = FontWeight.Bold)
+                        summary.prExerciseNames.forEach { name ->
+                            Text("• $name", color = TextPrimary)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissWorkoutSummary() }) {
+                    Text("NICE", color = GymVolt, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 
     routinePendingDelete?.let { routine ->

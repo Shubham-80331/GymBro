@@ -107,7 +107,7 @@ Goal: every number on screen is real and no user data is lost.
 | W-04 | Add, swap, or reorder exercises mid-workout; supersets | M |
 | W-05 | Plate calculator (bar weight setting, available plates) | S |
 | W-06 | Notes per exercise and per session | S |
-| W-07 | Workout summary screen: volume, PRs hit, duration, muscles worked | M |
+| W-07 | ☑ Workout summary screen: volume, PRs hit, duration, muscles worked | M |
 
 ### 3B. Exercise library
 | ID | Feature | Size |
@@ -135,7 +135,7 @@ Goal: every number on screen is real and no user data is lost.
 |---|---|---|
 | N-01 | Food search (Open Food Facts plus USDA); serving sizes and quantity | L |
 | N-02 | Barcode scanner (CameraX plus ML Kit) | M |
-| N-03 | Recent, favourite, and custom foods (custom foods are already in the DB but have no UI) | S |
+| N-03 | ◐ (saved foods quick-pick done; recents/favourites next) Recent, favourite, and custom foods (custom foods are already in the DB but have no UI) | S |
 | N-04 | Indian and regional food database (dal, roti, paneer, poha…) | M |
 | N-05 | Copy a meal or day; saved meals and recipes | M |
 
