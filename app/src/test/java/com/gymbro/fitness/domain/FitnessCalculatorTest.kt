@@ -91,6 +91,22 @@ class FitnessCalculatorTest {
         assertEquals(0.0, FitnessCalculator.suggestNextWeight(listOf(LoggedSet(0.0, 10)), 8, 0.0), 0.001)
     }
 
+    @Test
+    fun `plate calculator loads heaviest plates first per side`() {
+        val loadout = FitnessCalculator.platesPerSide(102.5)
+        assertEquals(listOf(25.0, 15.0, 1.25), loadout.platesPerSideKg)
+        assertEquals(0.0, loadout.remainderKg, 0.001)
+    }
+
+    @Test
+    fun `plate calculator reports what cannot be matched`() {
+        val loadout = FitnessCalculator.platesPerSide(61.0)
+        assertEquals(listOf(20.0), loadout.platesPerSideKg)
+        assertEquals(1.0, loadout.remainderKg, 0.001)
+        assertTrue(FitnessCalculator.platesPerSide(20.0).platesPerSideKg.isEmpty())
+        assertTrue(FitnessCalculator.platesPerSide(15.0).platesPerSideKg.isEmpty())
+    }
+
     private fun noon(): Long = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 12)
         set(Calendar.MINUTE, 0)

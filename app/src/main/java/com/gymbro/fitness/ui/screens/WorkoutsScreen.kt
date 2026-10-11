@@ -34,8 +34,10 @@ import com.gymbro.fitness.data.Routine
 import com.gymbro.fitness.data.RoutineExercise
 import com.gymbro.fitness.data.WorkoutSession
 import com.gymbro.fitness.ui.ActiveWorkoutExercise
+import com.gymbro.fitness.domain.FitnessCalculator
 import com.gymbro.fitness.notifications.RestTimerNotifier
 import com.gymbro.fitness.ui.GymBroViewModel
+import com.gymbro.fitness.ui.formatKg
 import com.gymbro.fitness.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -878,6 +880,11 @@ fun ActiveExerciseCard(
     viewModel: GymBroViewModel,
     timerActive: Boolean
 ) {
+    var showPlates by remember { mutableStateOf(false) }
+    if (showPlates) {
+        PlateCalculatorDialog(initialWeightKg = exercise.targetWeightKg, onDismiss = { showPlates = false })
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
@@ -890,10 +897,13 @@ fun ActiveExerciseCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(text = exercise.name, color = TextPrimary, fontWeight = FontWeight.Black, fontSize = 16.sp)
                     Text(text = "${exercise.muscleGroup.uppercase()} | ${exercise.targetSets} sets x ${exercise.targetReps} reps", color = GymVolt, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(text = exercise.lastSessionMessage, color = TextSecondary, fontSize = 11.sp)
+                }
+                TextButton(onClick = { showPlates = true }) {
+                    Text(text = "PLATES", color = GymVolt, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -1032,4 +1042,64 @@ private fun WorkoutHistoryRow(session: WorkoutSession, onDelete: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun PlateCalculatorDialog(initialWeightKg: Double, onDismiss: () -> Unit) {
+    var weightInput by remember { mutableStateOf(if (initialWeightKg > 0) formatKg(initialWeightKg) else "") }
+    var barInput by remember { mutableStateOf("20") }
+    val target = weightInput.trim().toDoubleOrNull()
+    val bar = barInput.trim().toDoubleOrNull() ?: 20.0
+    val loadout = target?.let { FitnessCalculator.platesPerSide(it, bar) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        title = { Text("Plate calculator", color = GymVolt, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = weightInput,
+                        onValueChange = { weightInput = it },
+                        label = { Text("Total (kg)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = barInput,
+                        onValueChange = { barInput = it },
+                        label = { Text("Bar (kg)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                when {
+                    loadout == null -> Text("Enter a total weight.", color = TextSecondary)
+                    loadout.platesPerSideKg.isEmpty() -> Text("Just the bar.", color = TextPrimary)
+                    else -> {
+                        Text("Each side:", color = TextSecondary, fontSize = 12.sp)
+                        Text(
+                            text = loadout.platesPerSideKg.joinToString("  +  ") { formatKg(it) },
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    }
+                }
+                if (loadout != null && loadout.remainderKg > 0.0) {
+                    Text(
+                        text = "${formatKg(loadout.remainderKg)} kg can't be made with standard plates.",
+                        color = ProteinOrange,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("DONE", color = GymVolt) }
+        }
+    )
 }

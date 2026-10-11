@@ -7,6 +7,8 @@ import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+data class PlateLoadout(val platesPerSideKg: List<Double>, val remainderKg: Double)
+
 data class LoggedSet(val weightKg: Double, val reps: Int)
 
 data class MacroTargets(
@@ -115,6 +117,30 @@ object FitnessCalculator {
         val increment = if (workingWeight >= 20.0) 2.5 else 1.0
         return workingWeight + increment
     }
+
+    /**
+     * Plates to load on EACH side of the bar for [targetKg], heaviest first, using the greedy
+     * method (exact for standard plate sets). [remainderKg] is what couldn't be matched.
+     */
+    fun platesPerSide(
+        targetKg: Double,
+        barKg: Double = 20.0,
+        availablePlatesKg: List<Double> = STANDARD_PLATES_KG
+    ): PlateLoadout {
+        var perSide = (targetKg - barKg) / 2.0
+        if (perSide <= 0.0) return PlateLoadout(emptyList(), 0.0)
+        val plates = mutableListOf<Double>()
+        for (plate in availablePlatesKg.sortedDescending()) {
+            while (perSide + EPSILON >= plate) {
+                plates += plate
+                perSide -= plate
+            }
+        }
+        return PlateLoadout(plates, (perSide * 2).coerceAtLeast(0.0))
+    }
+
+    val STANDARD_PLATES_KG = listOf(25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25)
+    private const val EPSILON = 1e-6
 
     private const val STRENGTH_TRAINING_MET = 5.0
 }
