@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gymbro.fitness.domain.WeightUnit
 import com.gymbro.fitness.ui.GymBroViewModel
 import com.gymbro.fitness.ui.theme.*
 
@@ -33,13 +34,14 @@ fun OnboardingScreen(
 
     // Onboarding form state, prefilled from the saved profile when editing goals later.
     val existing = remember { viewModel.userProfile.value }
+    val unit by viewModel.weightUnit.collectAsState()
     var age by remember { mutableStateOf(existing?.age?.toString() ?: "25") }
     var gender by remember { mutableStateOf(existing?.gender ?: "Male") }
-    var weight by remember { mutableStateOf(existing?.weightKg?.toString() ?: "75.0") }
+    var weight by remember { mutableStateOf(existing?.weightKg?.let { unit.format(it) } ?: unit.format(75.0)) }
     var height by remember { mutableStateOf(existing?.heightCm?.toString() ?: "175.0") }
     var activityLevel by remember { mutableStateOf(existing?.activityLevel ?: "Moderately Active") }
     var primaryGoal by remember { mutableStateOf(existing?.primaryGoal ?: "Bulk") }
-    var targetWeight by remember { mutableStateOf(existing?.targetWeightKg?.toString() ?: "80.0") }
+    var targetWeight by remember { mutableStateOf(existing?.targetWeightKg?.let { unit.format(it) } ?: unit.format(80.0)) }
     var timeframeWeeks by remember { mutableStateOf(existing?.timeframeWeeks?.toString() ?: "12") }
 
     Scaffold(
@@ -90,20 +92,28 @@ fun OnboardingScreen(
                         gender = gender, onGenderChange = { gender = it },
                         height = height, onHeightChange = { height = it },
                         weight = weight, onWeightChange = { weight = it },
+                        unit = unit,
+                        onUnitChange = { newUnit ->
+                            // Convert what's typed so switching units doesn't change the actual weight.
+                            weight.trim().toDoubleOrNull()?.let { weight = newUnit.format(unit.toKg(it)) }
+                            targetWeight.trim().toDoubleOrNull()?.let { targetWeight = newUnit.format(unit.toKg(it)) }
+                            viewModel.setWeightUnit(newUnit)
+                        },
                         onNext = { step = 2 }
                     )
                     2 -> StepGoals(
                         activityLevel = activityLevel, onActivityChange = { activityLevel = it },
                         primaryGoal = primaryGoal, onGoalChange = { primaryGoal = it },
                         targetWeight = targetWeight, onTargetWeightChange = { targetWeight = it },
+                        unit = unit,
                         timeframeWeeks = timeframeWeeks, onTimeframeChange = { timeframeWeeks = it },
                         onBack = { step = 1 },
                         onComplete = {
                             // Both steps only enable their buttons once these parse and are in range.
                             val finalAge = age.trim().toIntOrNull()
-                            val finalWeight = weight.trim().toDoubleOrNull()
+                            val finalWeight = weight.trim().toDoubleOrNull()?.let(unit::toKg)
                             val finalHeight = height.trim().toDoubleOrNull()
-                            val finalTargetWeight = targetWeight.trim().toDoubleOrNull()
+                            val finalTargetWeight = targetWeight.trim().toDoubleOrNull()?.let(unit::toKg)
                             val finalWeeks = timeframeWeeks.trim().toIntOrNull()
                             if (finalAge == null || finalWeight == null || finalHeight == null ||
                                 finalTargetWeight == null || finalWeeks == null
@@ -136,11 +146,12 @@ fun StepVitals(
     gender: String, onGenderChange: (String) -> Unit,
     height: String, onHeightChange: (String) -> Unit,
     weight: String, onWeightChange: (String) -> Unit,
+    unit: WeightUnit, onUnitChange: (WeightUnit) -> Unit,
     onNext: () -> Unit
 ) {
     val ageValid = isValidAge(age)
     val heightValid = isValidHeight(height)
-    val weightValid = isValidBodyWeight(weight)
+    val weightValid = isValidBodyWeight(weight, unit)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -200,6 +211,30 @@ fun StepVitals(
                 }
             }
 
+            // Weight unit
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("UNITS", color = TextSecondary, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                WeightUnit.entries.forEach { option ->
+                    val selected = option == unit
+                    OutlinedButton(
+                        onClick = { if (!selected) onUnitChange(option) },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (selected) GymVolt else Color.Transparent,
+                            contentColor = if (selected) Color.Black else TextPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        Text(option.label, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
             // Age field
             OutlinedTextField(
                 value = age,
@@ -239,9 +274,9 @@ fun StepVitals(
                 OutlinedTextField(
                     value = weight,
                     onValueChange = onWeightChange,
-                    label = { Text("WEIGHT (kg)") },
+                    label = { Text("WEIGHT (${unit.label})") },
                     isError = !weightValid,
-                    supportingText = if (!weightValid) {{ Text("30–300 kg") }} else null,
+                    supportingText = if (!weightValid) {{ Text(bodyWeightRangeText(unit)) }} else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -285,11 +320,12 @@ fun StepGoals(
     activityLevel: String, onActivityChange: (String) -> Unit,
     primaryGoal: String, onGoalChange: (String) -> Unit,
     targetWeight: String, onTargetWeightChange: (String) -> Unit,
+    unit: WeightUnit,
     timeframeWeeks: String, onTimeframeChange: (String) -> Unit,
     onBack: () -> Unit,
     onComplete: () -> Unit
 ) {
-    val targetWeightValid = isValidBodyWeight(targetWeight)
+    val targetWeightValid = isValidBodyWeight(targetWeight, unit)
     val timeframeValid = isValidTimeframe(timeframeWeeks)
     val activityLevels = listOf("Sedentary", "Lightly Active", "Moderately Active", "Very Active", "Highly Active")
     val goals = listOf("Cut", "Maintain", "Bulk", "Recomp")
@@ -372,9 +408,9 @@ fun StepGoals(
                 OutlinedTextField(
                     value = targetWeight,
                     onValueChange = onTargetWeightChange,
-                    label = { Text("TARGET WEIGHT (kg)") },
+                    label = { Text("TARGET WEIGHT (${unit.label})") },
                     isError = !targetWeightValid,
-                    supportingText = if (!targetWeightValid) {{ Text("30–300 kg") }} else null,
+                    supportingText = if (!targetWeightValid) {{ Text(bodyWeightRangeText(unit)) }} else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -490,5 +526,8 @@ fun StepGoals(
 
 private fun isValidAge(value: String) = value.trim().toIntOrNull()?.let { it in 13..100 } == true
 private fun isValidHeight(value: String) = value.trim().toDoubleOrNull()?.let { it in 100.0..250.0 } == true
-private fun isValidBodyWeight(value: String) = value.trim().toDoubleOrNull()?.let { it in 30.0..300.0 } == true
+private fun isValidBodyWeight(value: String, unit: WeightUnit) =
+    value.trim().toDoubleOrNull()?.let { unit.toKg(it) in 30.0..300.0 } == true
+
+private fun bodyWeightRangeText(unit: WeightUnit) = "${unit.format(30.0)}–${unit.format(300.0)} ${unit.label}"
 private fun isValidTimeframe(value: String) = value.trim().toIntOrNull()?.let { it in 1..104 } == true
