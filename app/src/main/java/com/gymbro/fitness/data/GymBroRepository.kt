@@ -37,6 +37,21 @@ class GymBroRepository(
     // Workout Sessions
     val allSessions: Flow<List<WorkoutSession>> = workoutSessionDao.getAllSessions()
     suspend fun logSession(session: WorkoutSession) = workoutSessionDao.insertSession(session)
+    suspend fun getSetLogsForSession(session: WorkoutSession): List<WorkoutSetLog> =
+        workoutSetLogDao.getSetLogsForSession(session.dateMillis)
+
+    /** Saves edited sets (deleting [removedIds]) and recomputes the session's totals. */
+    suspend fun saveEditedSession(session: WorkoutSession, sets: List<WorkoutSetLog>, removedIds: List<Int>) {
+        removedIds.forEach { workoutSetLogDao.deleteSetLog(it) }
+        sets.forEach { workoutSetLogDao.updateSetLog(it) }
+        workoutSessionDao.insertSession(
+            session.copy(
+                totalVolumeLoadKg = sets.sumOf { it.weightKg * it.reps },
+                completedSetsCount = sets.size
+            )
+        )
+    }
+
     suspend fun deleteSession(session: WorkoutSession) {
         workoutSetLogDao.deleteSetLogsForSession(session.dateMillis)
         workoutSessionDao.deleteSession(session.id)

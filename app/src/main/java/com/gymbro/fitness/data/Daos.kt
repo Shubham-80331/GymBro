@@ -88,6 +88,12 @@ interface WorkoutSetLogDao {
     @Query("DELETE FROM workout_set_logs WHERE id = :id")
     suspend fun deleteSetLog(id: Int)
 
+    @Query("SELECT * FROM workout_set_logs WHERE dateMillis = :sessionDateMillis ORDER BY exerciseName ASC, setIndex ASC")
+    suspend fun getSetLogsForSession(sessionDateMillis: Long): List<WorkoutSetLog>
+
+    @Update
+    suspend fun updateSetLog(log: WorkoutSetLog)
+
     /** Sets are saved with their session's timestamp, which links them to it. */
     @Query("DELETE FROM workout_set_logs WHERE dateMillis = :sessionDateMillis")
     suspend fun deleteSetLogsForSession(sessionDateMillis: Long)

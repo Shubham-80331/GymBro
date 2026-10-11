@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import com.gymbro.fitness.data.Routine
 import com.gymbro.fitness.data.RoutineExercise
 import com.gymbro.fitness.data.WorkoutSession
+import com.gymbro.fitness.data.WorkoutSetLog
 import com.gymbro.fitness.ui.ActiveWorkoutExercise
 import com.gymbro.fitness.domain.FitnessCalculator
 import com.gymbro.fitness.domain.ProgramTemplate
@@ -60,6 +61,7 @@ fun WorkoutsScreen(
     val sessions by viewModel.allSessions.collectAsState()
     val unit by viewModel.weightUnit.collectAsState()
     var sessionPendingDelete by remember { mutableStateOf<WorkoutSession?>(null) }
+    var sessionBeingEdited by remember { mutableStateOf<WorkoutSession?>(null) }
 
     var showCreateRoutineDialog by remember { mutableStateOf(false) }
     var routineNameInput by remember { mutableStateOf("") }
@@ -268,7 +270,12 @@ fun WorkoutsScreen(
                         }
                     } else {
                         items(sessions.take(20), key = { it.id }) { session ->
-                            WorkoutHistoryRow(session = session, unit = unit, onDelete = { sessionPendingDelete = session })
+                            WorkoutHistoryRow(
+                                session = session,
+                                unit = unit,
+                                onClick = { sessionBeingEdited = session },
+                                onDelete = { sessionPendingDelete = session }
+                            )
                         }
                     }
                 }
@@ -316,6 +323,15 @@ fun WorkoutsScreen(
                 Toast.makeText(context, "Added ${template.days.size} routines from ${template.name}", Toast.LENGTH_SHORT).show()
             },
             onDismiss = { showTemplates = false }
+        )
+    }
+
+    sessionBeingEdited?.let { session ->
+        EditSessionDialog(
+            session = session,
+            unit = unit,
+            viewModel = viewModel,
+            onDismiss = { sessionBeingEdited = null }
         )
     }
 
@@ -1086,13 +1102,15 @@ fun ActiveExerciseCard(
 }
 
 @Composable
-private fun WorkoutHistoryRow(session: WorkoutSession, unit: WeightUnit, onDelete: () -> Unit) {
+private fun WorkoutHistoryRow(session: WorkoutSession, unit: WeightUnit, onClick: () -> Unit, onDelete: () -> Unit) {
     val dateText = remember(session.dateMillis) {
         java.text.SimpleDateFormat("EEE, d MMM · HH:mm", java.util.Locale.getDefault())
             .format(java.util.Date(session.dateMillis))
     }
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -1231,6 +1249,105 @@ private fun ProgramTemplatesDialog(onAdd: (ProgramTemplate) -> Unit, onDismiss: 
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("CLOSE", color = TextSecondary) }
+        }
+    )
+}
+
+private class EditableSet(val log: WorkoutSetLog, val originalWeightText: String, reps: String) {
+    var weightText by mutableStateOf(originalWeightText)
+    var repsText by mutableStateOf(reps)
+}
+
+/** Fix typos in a finished workout: edit weight/reps or remove sets; totals are recomputed. */
+@Composable
+private fun EditSessionDialog(
+    session: WorkoutSession,
+    unit: WeightUnit,
+    viewModel: GymBroViewModel,
+    onDismiss: () -> Unit
+) {
+    val rows = remember(session.id) { mutableStateListOf<EditableSet>() }
+    val removedIds = remember(session.id) { mutableStateListOf<Int>() }
+    var loaded by remember(session.id) { mutableStateOf(false) }
+    LaunchedEffect(session.id) {
+        rows.clear()
+        rows.addAll(
+            viewModel.setLogsForSession(session).map {
+                EditableSet(it, unit.format(it.weightKg), it.reps.toString())
+            }
+        )
+        loaded = true
+    }
+    val allValid = rows.all { it.weightText.trim().toDoubleOrNull() != null && (it.repsText.trim().toIntOrNull() ?: 0) > 0 }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        title = { Text("Edit ${session.routineName}", color = GymVolt, fontWeight = FontWeight.Bold) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 440.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (loaded && rows.isEmpty()) {
+                    item { Text("No sets were logged for this workout.", color = TextSecondary) }
+                }
+                items(rows, key = { it.log.id }) { row ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${row.log.exerciseName} · S${row.log.setIndex + 1}",
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = row.weightText,
+                            onValueChange = { row.weightText = it },
+                            singleLine = true,
+                            label = { Text(unit.label, fontSize = 10.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.width(76.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        OutlinedTextField(
+                            value = row.repsText,
+                            onValueChange = { row.repsText = it },
+                            singleLine = true,
+                            label = { Text("reps", fontSize = 10.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.width(64.dp)
+                        )
+                        IconButton(onClick = {
+                            removedIds += row.log.id
+                            rows.remove(row)
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove set", tint = TextSecondary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = loaded && allValid,
+                onClick = {
+                    val edited = rows.map { row ->
+                        row.log.copy(
+                            // Untouched weights keep their exact stored value (display rounds to 0.1).
+                            weightKg = if (row.weightText == row.originalWeightText) row.log.weightKg
+                            else unit.toKg(row.weightText.trim().toDouble()),
+                            reps = row.repsText.trim().toInt()
+                        )
+                    }
+                    viewModel.saveEditedSession(session, edited, removedIds.toList())
+                    onDismiss()
+                }
+            ) {
+                Text("SAVE", color = GymVolt, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("CANCEL", color = TextSecondary) }
         }
     )
 }

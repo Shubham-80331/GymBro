@@ -656,6 +656,15 @@ class GymBroViewModel(application: Application) : AndroidViewModel(application) 
                 .sortedBy { it.first }
         }
 
+    suspend fun setLogsForSession(session: WorkoutSession): List<WorkoutSetLog> =
+        repository.getSetLogsForSession(session)
+
+    fun saveEditedSession(session: WorkoutSession, sets: List<WorkoutSetLog>, removedIds: List<Int>) {
+        viewModelScope.launch {
+            repository.saveEditedSession(session, sets, removedIds)
+        }
+    }
+
     fun deleteWorkoutSession(session: WorkoutSession) {
         viewModelScope.launch {
             repository.deleteSession(session)
